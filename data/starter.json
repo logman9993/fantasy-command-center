@@ -1,0 +1,516 @@
+{
+  "rankings": {
+    "QB": [
+      {
+        "name": "Josh Allen",
+        "team": "BUF",
+        "position": "QB",
+        "rank": 1,
+        "tier": 1
+      },
+      {
+        "name": "Lamar Jackson",
+        "team": "BAL",
+        "position": "QB",
+        "rank": 2,
+        "tier": 1
+      },
+      {
+        "name": "Jayden Daniels",
+        "team": "WAS",
+        "position": "QB",
+        "rank": 3,
+        "tier": 1
+      },
+      {
+        "name": "Jalen Hurts",
+        "team": "PHI",
+        "position": "QB",
+        "rank": 4,
+        "tier": 2
+      },
+      {
+        "name": "Joe Burrow",
+        "team": "CIN",
+        "position": "QB",
+        "rank": 5,
+        "tier": 2
+      },
+      {
+        "name": "Patrick Mahomes",
+        "team": "KC",
+        "position": "QB",
+        "rank": 6,
+        "tier": 2
+      },
+      {
+        "name": "Baker Mayfield",
+        "team": "TB",
+        "position": "QB",
+        "rank": 7,
+        "tier": 3
+      },
+      {
+        "name": "Bo Nix",
+        "team": "DEN",
+        "position": "QB",
+        "rank": 8,
+        "tier": 3
+      },
+      {
+        "name": "Drake Maye",
+        "team": "NE",
+        "position": "QB",
+        "rank": 9,
+        "tier": 3
+      },
+      {
+        "name": "Justin Herbert",
+        "team": "LAC",
+        "position": "QB",
+        "rank": 10,
+        "tier": 3
+      }
+    ],
+    "RB": [
+      {
+        "name": "Bijan Robinson",
+        "team": "ATL",
+        "position": "RB",
+        "rank": 1,
+        "tier": 1
+      },
+      {
+        "name": "Jahmyr Gibbs",
+        "team": "DET",
+        "position": "RB",
+        "rank": 2,
+        "tier": 1
+      },
+      {
+        "name": "Saquon Barkley",
+        "team": "PHI",
+        "position": "RB",
+        "rank": 3,
+        "tier": 1
+      },
+      {
+        "name": "De'Von Achane",
+        "team": "MIA",
+        "position": "RB",
+        "rank": 4,
+        "tier": 2
+      },
+      {
+        "name": "Christian McCaffrey",
+        "team": "SF",
+        "position": "RB",
+        "rank": 5,
+        "tier": 2
+      },
+      {
+        "name": "Jonathan Taylor",
+        "team": "IND",
+        "position": "RB",
+        "rank": 6,
+        "tier": 2
+      },
+      {
+        "name": "Breece Hall",
+        "team": "NYJ",
+        "position": "RB",
+        "rank": 7,
+        "tier": 2
+      },
+      {
+        "name": "Kyren Williams",
+        "team": "LAR",
+        "position": "RB",
+        "rank": 8,
+        "tier": 3
+      },
+      {
+        "name": "Josh Jacobs",
+        "team": "GB",
+        "position": "RB",
+        "rank": 9,
+        "tier": 3
+      },
+      {
+        "name": "James Cook",
+        "team": "BUF",
+        "position": "RB",
+        "rank": 10,
+        "tier": 3
+      }
+    ],
+    "WR": [
+      {
+        "name": "Ja'Marr Chase",
+        "team": "CIN",
+        "position": "WR",
+        "rank": 1,
+        "tier": 1
+      },
+      {
+        "name": "Justin Jefferson",
+        "team": "MIN",
+        "position": "WR",
+        "rank": 2,
+        "tier": 1
+      },
+      {
+        "name": "CeeDee Lamb",
+        "team": "DAL",
+        "position": "WR",
+        "rank": 3,
+        "tier": 1
+      },
+      {
+        "name": "Puka Nacua",
+        "team": "LAR",
+        "position": "WR",
+        "rank": 4,
+        "tier": 1
+      },
+      {
+        "name": "Amon-Ra St. Brown",
+        "team": "DET",
+        "position": "WR",
+        "rank": 5,
+        "tier": 2
+      },
+      {
+        "name": "Nico Collins",
+        "team": "HOU",
+        "position": "WR",
+        "rank": 6,
+        "tier": 2
+      },
+      {
+        "name": "Malik Nabers",
+        "team": "NYG",
+        "position": "WR",
+        "rank": 7,
+        "tier": 2
+      },
+      {
+        "name": "Brian Thomas Jr.",
+        "team": "JAX",
+        "position": "WR",
+        "rank": 8,
+        "tier": 2
+      },
+      {
+        "name": "A.J. Brown",
+        "team": "PHI",
+        "position": "WR",
+        "rank": 9,
+        "tier": 3
+      },
+      {
+        "name": "Drake London",
+        "team": "ATL",
+        "position": "WR",
+        "rank": 10,
+        "tier": 3
+      }
+    ],
+    "TE": [
+      {
+        "name": "Brock Bowers",
+        "team": "LV",
+        "position": "TE",
+        "rank": 1,
+        "tier": 1
+      },
+      {
+        "name": "Trey McBride",
+        "team": "ARI",
+        "position": "TE",
+        "rank": 2,
+        "tier": 1
+      },
+      {
+        "name": "George Kittle",
+        "team": "SF",
+        "position": "TE",
+        "rank": 3,
+        "tier": 2
+      },
+      {
+        "name": "Sam LaPorta",
+        "team": "DET",
+        "position": "TE",
+        "rank": 4,
+        "tier": 2
+      },
+      {
+        "name": "Mark Andrews",
+        "team": "BAL",
+        "position": "TE",
+        "rank": 5,
+        "tier": 2
+      },
+      {
+        "name": "T.J. Hockenson",
+        "team": "MIN",
+        "position": "TE",
+        "rank": 6,
+        "tier": 3
+      },
+      {
+        "name": "Travis Kelce",
+        "team": "KC",
+        "position": "TE",
+        "rank": 7,
+        "tier": 3
+      },
+      {
+        "name": "David Njoku",
+        "team": "CLE",
+        "position": "TE",
+        "rank": 8,
+        "tier": 3
+      },
+      {
+        "name": "Evan Engram",
+        "team": "DEN",
+        "position": "TE",
+        "rank": 9,
+        "tier": 3
+      },
+      {
+        "name": "Tucker Kraft",
+        "team": "GB",
+        "position": "TE",
+        "rank": 10,
+        "tier": 4
+      }
+    ],
+    "K": [
+      {
+        "name": "Brandon Aubrey",
+        "team": "DAL",
+        "position": "K",
+        "rank": 1
+      },
+      {
+        "name": "Jake Bates",
+        "team": "DET",
+        "position": "K",
+        "rank": 2
+      },
+      {
+        "name": "Cameron Dicker",
+        "team": "LAC",
+        "position": "K",
+        "rank": 3
+      },
+      {
+        "name": "Ka'imi Fairbairn",
+        "team": "HOU",
+        "position": "K",
+        "rank": 4
+      },
+      {
+        "name": "Chase McLaughlin",
+        "team": "TB",
+        "position": "K",
+        "rank": 5
+      }
+    ],
+    "DST": [
+      {
+        "name": "Denver Broncos",
+        "team": "DEN",
+        "position": "DST",
+        "rank": 1
+      },
+      {
+        "name": "Philadelphia Eagles",
+        "team": "PHI",
+        "position": "DST",
+        "rank": 2
+      },
+      {
+        "name": "Baltimore Ravens",
+        "team": "BAL",
+        "position": "DST",
+        "rank": 3
+      },
+      {
+        "name": "Pittsburgh Steelers",
+        "team": "PIT",
+        "position": "DST",
+        "rank": 4
+      },
+      {
+        "name": "Buffalo Bills",
+        "team": "BUF",
+        "position": "DST",
+        "rank": 5
+      }
+    ]
+  },
+  "sleepers": [
+    {
+      "name": "Player discovery uses Sleeper trending",
+      "team": "LIVE",
+      "position": "\u2014",
+      "adds": 0,
+      "reason": "Connect to internet when app starts"
+    },
+    {
+      "name": "Late-round RB handcuffs",
+      "team": "\u2014",
+      "position": "RB",
+      "adds": 0,
+      "reason": "Prioritize ambiguous backfields"
+    },
+    {
+      "name": "Year-2 WR breakouts",
+      "team": "\u2014",
+      "position": "WR",
+      "adds": 0,
+      "reason": "Target-volume growth can beat ADP"
+    }
+  ],
+  "injury_risk": [
+    {
+      "name": "Christian McCaffrey",
+      "team": "SF",
+      "position": "RB",
+      "risk": 78,
+      "reason": "workload + recent availability profile"
+    },
+    {
+      "name": "George Kittle",
+      "team": "SF",
+      "position": "TE",
+      "risk": 63,
+      "reason": "age/workload profile"
+    },
+    {
+      "name": "Travis Kelce",
+      "team": "KC",
+      "position": "TE",
+      "risk": 61,
+      "reason": "age/workload profile"
+    }
+  ],
+  "defenses": [
+    {
+      "name": "Denver Broncos",
+      "team": "DEN",
+      "position": "DST",
+      "rank": 1
+    },
+    {
+      "name": "Philadelphia Eagles",
+      "team": "PHI",
+      "position": "DST",
+      "rank": 2
+    },
+    {
+      "name": "Baltimore Ravens",
+      "team": "BAL",
+      "position": "DST",
+      "rank": 3
+    },
+    {
+      "name": "Pittsburgh Steelers",
+      "team": "PIT",
+      "position": "DST",
+      "rank": 4
+    },
+    {
+      "name": "Buffalo Bills",
+      "team": "BUF",
+      "position": "DST",
+      "rank": 5
+    },
+    {
+      "name": "Minnesota Vikings",
+      "team": "MIN",
+      "position": "DST",
+      "rank": 6
+    },
+    {
+      "name": "Green Bay Packers",
+      "team": "GB",
+      "position": "DST",
+      "rank": 7
+    },
+    {
+      "name": "Kansas City Chiefs",
+      "team": "KC",
+      "position": "DST",
+      "rank": 8
+    },
+    {
+      "name": "Houston Texans",
+      "team": "HOU",
+      "position": "DST",
+      "rank": 9
+    },
+    {
+      "name": "Los Angeles Chargers",
+      "team": "LAC",
+      "position": "DST",
+      "rank": 10
+    }
+  ],
+  "offenses": [
+    {
+      "name": "Buffalo Bills",
+      "team": "BUF",
+      "rank": 1
+    },
+    {
+      "name": "Detroit Lions",
+      "team": "DET",
+      "rank": 2
+    },
+    {
+      "name": "Baltimore Ravens",
+      "team": "BAL",
+      "rank": 3
+    },
+    {
+      "name": "Philadelphia Eagles",
+      "team": "PHI",
+      "rank": 4
+    },
+    {
+      "name": "Cincinnati Bengals",
+      "team": "CIN",
+      "rank": 5
+    },
+    {
+      "name": "Kansas City Chiefs",
+      "team": "KC",
+      "rank": 6
+    },
+    {
+      "name": "Tampa Bay Buccaneers",
+      "team": "TB",
+      "rank": 7
+    },
+    {
+      "name": "Green Bay Packers",
+      "team": "GB",
+      "rank": 8
+    },
+    {
+      "name": "Los Angeles Rams",
+      "team": "LAR",
+      "rank": 9
+    },
+    {
+      "name": "Washington Commanders",
+      "team": "WAS",
+      "rank": 10
+    }
+  ]
+}

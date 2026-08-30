@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020"><title>Fantasy Command Center V6</title>
+<link rel="manifest" href="/static/manifest.json">
+<style>
+:root{--bg:#070b14;--panel:#0f1728;--panel2:#131e34;--text:#eef4ff;--muted:#8fa2c4;--accent:#5ae0a0;--blue:#5bbcff;--red:#ff6b78;--gold:#ffd166;--line:#22304d}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial;background:linear-gradient(180deg,#09101d,var(--bg));color:var(--text)}
+.wrap{max-width:1250px;margin:auto;padding:16px}.hero{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin:4px 0 18px}
+h1{font-size:clamp(27px,7vw,46px);margin:0;letter-spacing:-1.4px}.tag,.sub,.notice,.history,.footer{color:var(--muted)}
+.badge{padding:7px 10px;border-radius:999px;background:#14243b;color:var(--accent);font-size:12px;font-weight:800}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+select,input,button{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:12px;border-radius:12px;font-size:15px}
+.controls button{background:var(--accent);color:#042316;border:0;font-weight:900}
+.notice{padding:11px 12px;background:#111e31;border-radius:12px;font-size:13px;margin-bottom:12px}
+.tabs{display:flex;overflow:auto;gap:8px;padding:0 0 9px;position:sticky;top:0;background:rgba(7,11,20,.93);backdrop-filter:blur(9px);z-index:5}
+.tab{width:auto;white-space:nowrap;font-weight:800;color:var(--muted)}.tab.active{background:var(--text);color:#07101d}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:17px;padding:14px;overflow:hidden}
+.card h2{margin:0 0 10px;font-size:18px}.row{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid rgba(255,255,255,.055)}
+.row:first-of-type{border-top:0}.clickable{cursor:pointer}.rank{font-weight:900;color:var(--accent)}.name{font-weight:850}.sub{font-size:12px;margin-top:2px}
+.pill{font-size:11px;font-weight:900;padding:5px 7px;border-radius:8px;background:#192947;color:var(--blue)}.risk{color:var(--red)}.up{color:var(--accent)}
+.analytics,.detailbox{margin:0 0 10px 44px;padding:12px;border-radius:13px;background:#0a1323;border:1px solid #1d2b45}.analytics{display:none}.analytics.open{display:block}
+.bigstats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.bigstat{padding:10px;background:#111f35;border-radius:10px}.bigstat .v{font-size:22px;font-weight:900}.bigstat .l{font-size:11px;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.kpi,.teamstat{padding:8px;background:#101a2c;border-radius:9px}.kpi b,.teamstat b{display:block;font-size:16px}.kpi span,.teamstat span{font-size:10px;color:var(--muted)}
+.analysisText{font-size:13px;line-height:1.5;margin-top:10px;padding:10px;border-left:3px solid var(--accent);background:#0c1829;border-radius:7px}.history{font-size:11px;margin-top:9px}.section{display:none}.section.active{display:block}.footer{text-align:center;font-size:11px;padding:24px 0 10px}
+.detailtitle{font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-top:8px}.detailtext{font-size:13px;line-height:1.45;margin-top:3px}.action{color:var(--accent);font-weight:800}
+.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:9px}.ranktag{color:var(--accent);font-weight:900}.injuryline{padding:8px 0;border-top:1px solid rgba(255,255,255,.055);font-size:13px}.injuryline:first-child{border-top:0}
+.health{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.healthItem{padding:9px;border-radius:10px;background:#101a2c;font-size:12px}.good{color:var(--accent)}.bad{color:var(--red)}.source{color:var(--gold);font-size:10px;margin-top:4px}
+.empty{padding:18px;color:var(--muted);text-align:center;border:1px dashed var(--line);border-radius:12px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}.controls{grid-template-columns:1fr}.analytics,.detailbox{margin-left:0}.kpis{grid-template-columns:repeat(2,1fr)}.health{grid-template-columns:1fr}}
+</style></head>
+<body><div class="wrap">
+<div class="hero"><div><h1>Fantasy Command Center <span style="color:var(--accent)">V6</span></h1><div class="tag">Draft board + explainable fantasy analysis.</div></div><div class="badge">{{ season }} • {{ "LIVE ECR" if live else "MODEL + SLEEPER" }}</div></div>
+<div class="controls"><select id="scoring"><option>PPR</option><option>HALF</option><option>STD</option></select><button id="refreshBtn">Refresh Board</button></div>
+<div id="notice" class="notice">Loading Top 25 rankings, player analysis and team intelligence…</div>
+<div class="tabs">
+<button class="tab active" data-target="rankings">Rankings + Analysis</button>
+<button class="tab" data-target="sleepers">25 Sleepers</button>
+<button class="tab" data-target="risk">Injury Risk</button>
+<button class="tab" data-target="teams">Offense / Defense</button>
+<button class="tab" data-target="health">Data Health</button>
+<button class="tab" data-target="roster">My Team</button>
+</div>
+
+<section id="rankings" class="section active"><div class="notice">Every position is targeted to 25 actual current players. Tap a player for prior-year KPIs, positional ranks, five-year PPG history, projection and written analysis.</div><div id="rankingGrid" class="grid"></div></section>
+<section id="sleepers" class="section"><div class="card"><h2>Top 25 Sleeper / Upside Targets</h2><div class="notice">Obvious Top-25 positional names are excluded. Each target includes the thesis, upside and a draft/waiver window.</div><div id="sleepersList"></div></div></section>
+<section id="risk" class="section"><div class="card"><h2>Draft-Relevant Injury Risk</h2><div class="notice">Only players on the current Top-25 positional draft boards are considered. Historical injury reports are available through 2024; current designation comes from Sleeper.</div><div id="riskList"></div></div></section>
+<section id="teams" class="section"><div class="grid"><div class="card"><h2>Best Defenses</h2><div class="notice">Composite of points/yards/EPA allowed, sacks and takeaways. Each metric is ranked against the entire league.</div><div id="defenses"></div></div><div class="card"><h2>Best Offenses</h2><div class="notice">Composite of points, yards, EPA, TD production and ball security. Each metric is ranked against the entire league.</div><div id="offenses"></div></div></section>
+<section id="health" class="section"><div class="card"><h2>Data Health</h2><div class="notice">This is the first place to look if a tab ever appears incomplete.</div><div id="healthArea" class="health"></div></div></section>
+<section id="roster" class="section"><div class="card"><h2>Connect Sleeper Team</h2><div class="controls"><input id="username" placeholder="Sleeper username"><button id="findBtn">Find My Leagues</button></div><div id="leagueArea" class="notice">Enter your Sleeper username to import leagues and roster.</div><div id="rosterArea"></div></div></section>
+<div class="footer">nflverse • Sleeper • FantasyPros when configured • ESPN fallback for team stats</div>
+</div>
+<script>
+let board=null;
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const key=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+
+function analyticsHTML(p){
+ const a=board?.analytics?.[key(p.name)], id="a-"+key(p.name);
+ if(!a)return `<div class="analytics" id="${id}"><div class="sub">No historical production match found. Current ranking source: ${esc(p.source||"fallback")}.</div></div>`;
+ const kpis=(a.kpis||[]).map(k=>`<div class="kpi"><b>${esc(k.value)}</b><span>${esc(k.label)}${k.rank?` • ${p.position} #${k.rank}`:""}</span></div>`).join("");
+ const history=(a.history||[]).map(h=>`${h.season}: ${h.ppg} PPG`).join(" • ");
+ return `<div class="analytics" id="${id}">
+ <div class="bigstats"><div class="bigstat"><div class="v">${a.last_year_ppg??"—"}</div><div class="l">${board.meta.prior_season} actual PPG</div></div><div class="bigstat"><div class="v">${a.projected_ppg??"—"}</div><div class="l">${board.meta.season} model PPG</div></div></div>
+ <div class="kpis">${kpis}</div><div class="analysisText"><b>Analysis:</b> ${esc(a.analysis||"")}</div><div class="history">${a.model_years} season${a.model_years===1?"":"s"} used • ${history}</div></div>`;
+}
+function rankingRows(items,pos){
+ if(!items?.length)return `<div class="empty">No ${pos} data returned. Check Data Health.</div>`;
+ return items.map((p,i)=>`<div><div class="row clickable" data-player="${key(p.name)}"><div class="rank">${i+1}</div><div><div class="name">${esc(p.name)}</div><div class="sub">${esc(p.team||"")} • ${esc(p.position||pos)}${p.starter_basis?" • "+esc(p.starter_basis):""}</div><div class="source">${esc(p.source||"")}</div></div><div class="pill">${p.tier?"T"+p.tier:"#"+(p.rank||i+1)}</div></div>${analyticsHTML(p)}</div>`).join("");
+}
+function sleeperRows(items){
+ if(!items?.length)return `<div class="empty">No sleeper candidates returned. Check Data Health.</div>`;
+ return items.map((p,i)=>`<div><div class="row"><div class="rank">${i+1}</div><div><div class="name">${esc(p.name)}</div><div class="sub">${esc(p.team)} • ${esc(p.position)}${p.adds?` • +${p.adds} Sleeper adds`:""}</div></div><div class="pill up">UPSIDE</div></div><div class="detailbox"><div class="detailtitle">Why this is a sleeper</div><div class="detailtext">${esc(p.why)}</div><div class="detailtitle">Potential upside</div><div class="detailtext">${esc(p.upside)}</div><div class="detailtitle">When to acquire</div><div class="detailtext action">${esc(p.acquisition)}</div></div></div>`).join("");
+}
+function injuryRows(items){
+ if(!items?.length)return `<div class="empty">No Top-25 draft-board players currently clear the injury-risk threshold.</div>`;
+ return items.map((p,i)=>{
+ const hist=(p.recent_injuries||[]).length?(p.recent_injuries||[]).map(x=>`<div class="injuryline"><b>${esc(x.injury)}</b> • ${x.season} ${esc(x.week_range)}<br><span class="sub">${x.weeks_reported} injury-report week(s) • <span class="risk">${x.weeks_out} week(s) listed Out</span>${x.statuses?" • "+esc(x.statuses):""}</span></div>`).join(""):`<div class="sub">No matching historical episode in the available 2009-2024 feed.</div>`;
+ return `<div><div class="row"><div class="rank">${i+1}</div><div><div class="name">${esc(p.name)}</div><div class="sub">${esc(p.team)} • ${esc(p.position)} • ${esc(p.reason)}</div></div><div class="pill risk">${p.risk}%</div></div><div class="detailbox"><div class="detailtitle">Last two documented episodes</div>${hist}<div class="analysisText"><b>Analysis:</b> ${esc(p.analysis||"")}</div></div></div>`;
+ }).join("");
+}
+function teamRows(items){
+ if(!items?.length)return `<div class="empty">Team statistics did not load. Check Data Health.</div>`;
+ return items.map((p,i)=>{
+ const stats=(p.stats||[]).length?(p.stats||[]).map(s=>`<div class="teamstat"><b>${esc(s.value)}</b><span>${esc(s.label)} • <span class="ranktag">NFL #${s.league_rank}</span></span></div>`).join(""):`<div class="empty">Stat source unavailable for this fallback card.</div>`;
+ return `<div><div class="row"><div class="rank">${i+1}</div><div><div class="name">${esc(p.name)}</div><div class="sub">${esc(p.summary||"")}</div><div class="source">${esc(p.source||"")}</div></div><div class="pill">#${p.rank||i+1}</div></div><div class="detailbox"><div class="statgrid">${stats}</div><div class="analysisText"><b>Why ranked here:</b> ${esc(p.analysis||"")}</div></div></div>`;
+ }).join("");
+}
+function healthRows(meta){
+ const src=meta?.source_status||{};
+ const items=Object.entries(src).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>`<div class="healthItem"><b>${esc(k)}</b><div class="${v.ok?"good":"bad"}">${v.ok?"✓ Working":"✕ Failed"}</div><div class="sub">${esc(v.detail)}</div></div>`);
+ const counts=Object.entries(meta?.counts||{}).map(([p,n])=>`<div class="healthItem"><b>${p} ranking count</b><div class="${n>=25?"good":"bad"}">${n} / 25</div></div>`);
+ return [...counts,...items].join("");
+}
+function render(){
+ document.getElementById("rankingGrid").innerHTML=["QB","RB","WR","TE","K","DST"].map(pos=>`<div class="card"><h2>${pos} Top 25</h2>${rankingRows(board.rankings[pos],pos)}</div>`).join("");
+ document.getElementById("sleepersList").innerHTML=sleeperRows(board.sleepers);
+ document.getElementById("riskList").innerHTML=injuryRows(board.injury_risk);
+ document.getElementById("defenses").innerHTML=teamRows(board.defenses);
+ document.getElementById("offenses").innerHTML=teamRows(board.offenses);
+ document.getElementById("healthArea").innerHTML=healthRows(board.meta);
+ document.querySelectorAll("[data-player]").forEach(el=>el.addEventListener("click",()=>document.getElementById("a-"+el.dataset.player)?.classList.toggle("open")));
+}
+async function loadBoard(){
+ const scoring=document.getElementById("scoring").value, notice=document.getElementById("notice");
+ notice.textContent="Refreshing rankings, analytics and team statistics…";
+ try{
+  const r=await fetch(`/api/dashboard?scoring=${encodeURIComponent(scoring)}`);
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  board=await r.json(); render();
+  const counts=Object.values(board.meta.counts||{}), full=counts.filter(x=>x>=25).length;
+  notice.textContent=`${full}/6 position boards at 25 • ${board.meta.analytics_live?"Player analytics enabled":"Historical analytics unavailable"} • ${scoring}`;
+ }catch(e){notice.textContent="Dashboard failed: "+e.message}
+}
+document.getElementById("refreshBtn").addEventListener("click",loadBoard);
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));document.getElementById(b.dataset.target).classList.add("active")}));
+document.getElementById("findBtn").addEventListener("click",findLeagues);
+async function findLeagues(){
+ const u=document.getElementById("username").value.trim(); if(!u)return;
+ const area=document.getElementById("leagueArea");area.textContent="Finding leagues…";
+ try{const d=await(await fetch(`/api/sleeper/leagues?username=${encodeURIComponent(u)}`)).json();if(d.error)throw new Error(d.error);area.innerHTML=(d.leagues||[]).map(l=>`<button class="leagueBtn" data-id="${esc(l.league_id)}"><b>${esc(l.name)}</b><br><small>${esc(l.season)} • ${esc(l.status)}</small></button>`).join("")||"No leagues found.";document.querySelectorAll(".leagueBtn").forEach(btn=>btn.addEventListener("click",()=>loadRoster(btn.dataset.id,u)))}catch(e){area.textContent=e.message}
+}
+async function loadRoster(id,u){const d=await(await fetch(`/api/sleeper/roster/${id}?username=${encodeURIComponent(u)}`)).json();document.getElementById("rosterArea").innerHTML=d.error?esc(d.error):`<div class="card"><h2>Your Roster</h2>${(d.players||[]).map((p,i)=>`<div class="row"><div class="rank">${i+1}</div><div><div class="name">${esc(p.name)}</div><div class="sub">${esc(p.team)} • ${esc(p.position)}</div></div></div>`).join("")}</div>`}
+loadBoard();
+</script></body></html>
