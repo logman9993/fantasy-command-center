@@ -197,3 +197,19 @@ From the project folder:
 `python self_test.py`
 
 This validates the updated interception scoring and the 32-team offense/defense aggregation without internet.
+
+
+## V6.2 Cloud performance hotfix
+
+The public dashboard now uses progressive loading:
+
+- Initial page: rankings + sleepers only.
+- Player five-year analysis: loaded when a player is tapped.
+- Injury history: loaded when the Injury Risk tab is opened.
+- Team offense/defense statistics: loaded when the Teams tab is opened.
+- Player row matching uses an in-memory index instead of repeatedly scanning every season file.
+- Injury histories are indexed once rather than reparsing every CSV for every player.
+- ESPN team fallback requests run concurrently.
+- Render uses one Gunicorn worker with multiple threads to reduce duplicated cache memory on the free instance.
+
+This specifically prevents Render's first `/api/dashboard` request from doing all expensive work before the browser can display anything.

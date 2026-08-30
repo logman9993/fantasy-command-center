@@ -4,6 +4,7 @@ import os, json, time, csv, io, math, statistics, re
 from pathlib import Path
 from difflib import SequenceMatcher
 from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -53,7 +54,7 @@ def source_fail(name, detail):
 def session():
     s = requests.Session()
     retry = Retry(
-        total=3, connect=3, read=3, backoff_factor=0.5,
+        total=1, connect=1, read=1, backoff_factor=0.35,
         status_forcelist=(429,500,502,503,504),
         allowed_methods=frozenset(["GET"])
     )
@@ -63,12 +64,12 @@ def session():
 
 HTTP = session()
 
-def http_json(url, headers=None, timeout=25):
+def http_json(url, headers=None, timeout=12):
     r = HTTP.get(url, headers=headers or {}, timeout=timeout)
     r.raise_for_status()
     return r.json()
 
-def http_text(url, timeout=35):
+def http_text(url, timeout=15):
     r = HTTP.get(url, timeout=timeout)
     r.raise_for_status()
     return r.content.decode("utf-8-sig", errors="replace")
@@ -228,19 +229,52 @@ def fantasy_points(row, scoring):
 def games(row):
     return num(row,"games",0) or num(row,"games_played",0) or 17
 
-def find_row(rows,name,pos=None):
-    target=norm_name(name)
-    best=None; bestscore=0
+
+_ROW_INDEX = {}
+
+def _row_index(rows):
+    cache_key=id(rows)
+    cached=_ROW_INDEX.get(cache_key)
+    if cached is not None:
+        return cached
+    exact={}
+    bypos={}
     for r in rows:
         rn=norm_name(r.get("player_display_name") or r.get("player_name") or r.get("name"))
-        rp=(r.get("position") or r.get("position_group") or "").upper()
-        if rn==target and (not pos or rp==pos or (pos=="K" and rp in ("K","PK"))):
-            return r
-        if pos and rp and not (rp==pos or (pos=="K" and rp in ("K","PK"))):
+        if not rn:
             continue
-        score=SequenceMatcher(None,target,rn).ratio()
-        if score>bestscore:
-            best,bestscore=r,score
+        rp=(r.get("position") or r.get("position_group") or "").upper()
+        exact[(rn,rp)]=r
+        bypos.setdefault(rp,[]).append((rn,r))
+    cached=(exact,bypos)
+    _ROW_INDEX[cache_key]=cached
+    return cached
+
+def find_row(rows,name,pos=None):
+    target=norm_name(name)
+    exact,bypos=_row_index(rows)
+    wanted=[]
+    if pos=="K":
+        wanted=["K","PK"]
+    elif pos:
+        wanted=[pos]
+    else:
+        wanted=list(bypos)
+
+    for rp in wanted:
+        r=exact.get((target,rp))
+        if r is not None:
+            return r
+
+    # Fuzzy fallback is now restricted to the requested position and is only
+    # used when an exact normalized name match fails.
+    best=None
+    bestscore=0
+    for rp in wanted:
+        for rn,r in bypos.get(rp,[]):
+            score=SequenceMatcher(None,target,rn).ratio()
+            if score>bestscore:
+                best,bestscore=r,score
     return best if bestscore>=0.93 else None
 
 def projection(history):
@@ -339,12 +373,13 @@ def dst_fallback(existing=None,limit=TOP_N):
         if len(out)>=limit: break
     return out[:limit]
 
+
 def build_model_rankings(scoring):
     result={p:[] for p in ALL_POSITIONS}
     try:
-        yearly={y:load_year_stats(y) for y in range(SEASON-HISTORY_YEARS,SEASON)}
+        prior_rows=load_year_stats(PRIOR_SEASON)
     except Exception:
-        yearly={}
+        prior_rows=[]
     current=sleeper_players()
     current_by_name={}
     for p in current.values():
@@ -352,38 +387,38 @@ def build_model_rankings(scoring):
         if n and p.get("team") and p.get("active",True):
             current_by_name[n]=p
 
-    for pos in ("QB","RB","WR","TE","K"):
-        candidates=[]
-        # Use current Sleeper players as the universe so retired/free-agent players cannot rank.
-        for n,p in current_by_name.items():
-            pp=(p.get("position") or "").upper()
-            if pos=="K":
-                if pp not in ("K","PK"): continue
-            elif pp!=pos:
-                continue
-            hist,_=history_for(player_name(p),pos,scoring,yearly) if yearly else ([],None)
-            proj=projection(hist)
-            if proj is None:
-                continue
-            last=next((x["ppg"] for x in hist if x["season"]==PRIOR_SEASON),None)
-            candidates.append((proj,last or 0,player_name(p),p.get("team"),hist))
-        candidates.sort(key=lambda x:(x[0],x[1]),reverse=True)
-        for i,(proj,last,name,team,hist) in enumerate(candidates[:TOP_N],1):
-            result[pos].append({
-                "name":name,"team":team,"position":pos,"rank":i,"tier":None,"adp":None,
-                "source":"5-year production model",
-                "starter_basis":f"{proj:.1f} projected PPG • {last:.1f} last-year PPG"
-            })
-        result[pos]=sleeper_position_fallback(pos,result[pos],TOP_N)
+    # Rank prior-season producers, then restrict to current rostered players.
+    if prior_rows:
+        for pos in ("QB","RB","WR","TE","K"):
+            candidates=[]
+            for r in prior_rows:
+                rp=(r.get("position") or r.get("position_group") or "").upper()
+                valid=(rp in ("K","PK")) if pos=="K" else (rp==pos)
+                if not valid:
+                    continue
+                name=r.get("player_display_name") or r.get("player_name") or r.get("name")
+                cur=current_by_name.get(norm_name(name))
+                if not name or not cur:
+                    continue
+                pts=fantasy_points(r,scoring)
+                g=games(r)
+                ppg=pts/g if g else 0
+                candidates.append((ppg,pts,name,cur.get("team")))
+            candidates.sort(key=lambda x:(x[0],x[1]),reverse=True)
+            for i,(ppg,pts,name,team) in enumerate(candidates[:TOP_N],1):
+                result[pos].append({
+                    "name":name,"team":team,"position":pos,"rank":i,
+                    "tier":None,"adp":None,
+                    "source":f"{PRIOR_SEASON} production fallback",
+                    "starter_basis":f"{ppg:.1f} prior-year PPG"
+                })
+            result[pos]=sleeper_position_fallback(pos,result[pos],TOP_N)
+    else:
+        for pos in ("QB","RB","WR","TE","K"):
+            result[pos]=sleeper_position_fallback(pos,[],TOP_N)
 
-    _,defs=team_power()
-    for i,d in enumerate(defs[:TOP_N],1):
-        result["DST"].append({
-            "name":d["name"],"team":d["team"],"position":"DST","rank":i,
-            "source":d.get("source","Team defense model"),
-            "starter_basis":d.get("summary","")
-        })
-    result["DST"]=dst_fallback(result["DST"],TOP_N)
+    # Do not make the initial page wait on team-stat downloads.
+    result["DST"]=dst_fallback([],TOP_N)
     return result
 
 def rankings(scoring):
@@ -507,6 +542,33 @@ def analysis_text(name,pos,last,proj,kpis,history):
             notes.append("Multi-year scoring has been relatively consistent, which improves floor confidence.")
     return " ".join(notes)
 
+
+@lru_cache(maxsize=512)
+def player_analysis_one(name,pos,scoring):
+    yearly={}
+    for y in range(SEASON-HISTORY_YEARS,SEASON):
+        try:
+            yearly[y]=load_year_stats(y)
+        except Exception:
+            continue
+    if not yearly:
+        return None
+    prior_rows=yearly.get(PRIOR_SEASON,[])
+    hist,prior=history_for(name,pos,scoring,yearly)
+    prev=next((x for x in hist if x["season"]==PRIOR_SEASON),None)
+    kpis=player_kpis(prior,pos,prior_rows) if prior else []
+    proj=projection(hist)
+    return {
+        "name":name,"position":pos,
+        "last_year_ppg":prev["ppg"] if prev else None,
+        "last_year_total":prev["points"] if prev else None,
+        "last_year_games":prev["games"] if prev else None,
+        "projected_ppg":proj,
+        "history":sorted(hist,key=lambda x:x["season"],reverse=True),
+        "kpis":kpis,"model_years":len(hist),
+        "analysis":analysis_text(name,pos,prev["ppg"] if prev else None,proj,kpis,hist)
+    }
+
 def analytics_for_rankings(rankings_data,scoring):
     try:
         yearly={y:load_year_stats(y) for y in range(SEASON-HISTORY_YEARS,SEASON)}
@@ -533,6 +595,7 @@ def analytics_for_rankings(rankings_data,scoring):
             }
     return result,None
 
+@lru_cache(maxsize=8)
 def load_injury_year(year):
     try:
         rows,src=cached_csv(f"injuries_{year}",86400*30,injury_urls(year),["full_name","report_status"])
@@ -540,33 +603,62 @@ def load_injury_year(year):
     except Exception:
         return []
 
+
+@lru_cache(maxsize=1)
+def injury_history_index():
+    index={}
+    years=list(range(max(2009,SEASON-6),min(SEASON,2025)))
+    # Download/parse the independent season files concurrently.
+    with ThreadPoolExecutor(max_workers=min(5,len(years))) as ex:
+        futures={ex.submit(load_injury_year,y):y for y in years}
+        for fut in as_completed(futures):
+            try:
+                season_rows=fut.result()
+            except Exception:
+                season_rows=[]
+            for r in season_rows:
+                name=norm_name(r.get("full_name"))
+                if not name:
+                    continue
+                injury=(r.get("report_primary_injury") or r.get("practice_primary_injury") or "").strip()
+                if not injury:
+                    continue
+                try: week=int(float(r.get("week") or 0))
+                except: week=0
+                try: season=int(float(r.get("season") or futures[fut]))
+                except: season=futures[fut]
+                index.setdefault(name,[]).append({
+                    "season":season,"week":week,"injury":injury,
+                    "status":(r.get("report_status") or "").strip()
+                })
+    for rows in index.values():
+        rows.sort(key=lambda x:(x["season"],x["week"]))
+    return index
+
 @lru_cache(maxsize=256)
 def injury_episodes_cached(name):
-    target=norm_name(name); rows=[]
-    # nflverse injury source currently ends with the 2024 season.
-    for year in range(max(2009,SEASON-6),min(SEASON,2025)):
-        for r in load_injury_year(year):
-            if norm_name(r.get("full_name"))!=target: continue
-            injury=(r.get("report_primary_injury") or r.get("practice_primary_injury") or "").strip()
-            if not injury: continue
-            try: week=int(float(r.get("week") or 0))
-            except: week=0
-            rows.append({"season":int(float(r.get("season") or year)),"week":week,"injury":injury,"status":(r.get("report_status") or "").strip()})
-    rows.sort(key=lambda x:(x["season"],x["week"]))
+    rows=list(injury_history_index().get(norm_name(name),[]))
     eps=[]
     for r in rows:
         same=eps and eps[-1]["season"]==r["season"] and eps[-1]["injury"].lower()==r["injury"].lower() and r["week"]<=eps[-1]["last_week"]+1
         if same:
-            ep=eps[-1]; ep["last_week"]=max(ep["last_week"],r["week"]); ep["weeks_reported"]+=1
+            ep=eps[-1]
+            ep["last_week"]=max(ep["last_week"],r["week"])
+            ep["weeks_reported"]+=1
             if r["status"].lower()=="out": ep["weeks_out"]+=1
             if r["status"]: ep["statuses"].add(r["status"])
         else:
-            eps.append({"season":r["season"],"first_week":r["week"],"last_week":r["week"],"injury":r["injury"],"weeks_reported":1,
-                        "weeks_out":1 if r["status"].lower()=="out" else 0,"statuses":set([r["status"]]) if r["status"] else set()})
+            eps.append({
+                "season":r["season"],"first_week":r["week"],"last_week":r["week"],
+                "injury":r["injury"],"weeks_reported":1,
+                "weeks_out":1 if r["status"].lower()=="out" else 0,
+                "statuses":set([r["status"]]) if r["status"] else set()
+            })
     out=[]
     for ep in reversed(eps[-2:]):
         out.append({
-            "season":ep["season"],"injury":ep["injury"],"weeks_reported":ep["weeks_reported"],"weeks_out":ep["weeks_out"],
+            "season":ep["season"],"injury":ep["injury"],
+            "weeks_reported":ep["weeks_reported"],"weeks_out":ep["weeks_out"],
             "week_range":f"Wk {ep['first_week']}" if ep["first_week"]==ep["last_week"] else f"Wks {ep['first_week']}-{ep['last_week']}",
             "statuses":", ".join(sorted(ep["statuses"]))
         })
@@ -732,25 +824,33 @@ def pickstat(flat,*names):
             except: pass
     return None
 
+
 def espn_team_fallback():
     rows=[]
     errors=0
-    for abbr,tid in ESPN_TEAMS.items():
-        try:
-            flat=cached_json(f"espn_team_{PRIOR_SEASON}_{tid}",86400*7,lambda tid=tid:espn_flat_stats(tid))
-            row={
-                "team":abbr,
-                "points":pickstat(flat,"totalPoints","pointsFor","points"),
-                "yards":pickstat(flat,"netYards","totalYards","yards"),
-                "turnovers":pickstat(flat,"totalGiveaways","turnovers","giveaways"),
-                "points_allowed":pickstat(flat,"pointsAllowed","totalPointsAllowed"),
-                "yards_allowed":pickstat(flat,"netYardsAllowed","totalYardsAllowed","yardsAllowed"),
-                "sacks":pickstat(flat,"sacks","defensiveSacks"),
-                "takeaways":pickstat(flat,"totalTakeaways","takeaways"),
-            }
-            rows.append(row)
-        except Exception:
-            errors+=1
+    def one(item):
+        abbr,tid=item
+        flat=cached_json(
+            f"espn_team_{PRIOR_SEASON}_{tid}",86400*7,
+            lambda tid=tid:espn_flat_stats(tid)
+        )
+        return {
+            "team":abbr,
+            "points":pickstat(flat,"totalPoints","pointsFor","points"),
+            "yards":pickstat(flat,"netYards","totalYards","yards"),
+            "turnovers":pickstat(flat,"totalGiveaways","turnovers","giveaways"),
+            "points_allowed":pickstat(flat,"pointsAllowed","totalPointsAllowed"),
+            "yards_allowed":pickstat(flat,"netYardsAllowed","totalYardsAllowed","yardsAllowed"),
+            "sacks":pickstat(flat,"sacks","defensiveSacks"),
+            "takeaways":pickstat(flat,"totalTakeaways","takeaways"),
+        }
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futures=[ex.submit(one,item) for item in ESPN_TEAMS.items()]
+        for fut in as_completed(futures):
+            try:
+                rows.append(fut.result())
+            except Exception:
+                errors+=1
     if rows:
         source_ok("team_stats_espn",f"ESPN fallback: {len(rows)} teams ({errors} errors)")
     else:
@@ -870,7 +970,7 @@ def health():
     return jsonify({
         "status": "ok",
         "app": "Fantasy Command Center",
-        "version": "6.1-deploy",
+        "version": "6.2-cloud",
         "season": SEASON,
         "time": int(time.time())
     })
@@ -901,31 +1001,74 @@ def dashboard():
     if scoring not in SCORING: scoring="PPR"
     data=fallback()
     ranks=rankings(scoring)
-    analytics,analytics_error=analytics_for_rankings(ranks,scoring)
-    sleepers=enrich_sleepers(sleeper_candidates(ranks),analytics)
-    risk=injury_risk(ranks)
-    offenses,defenses=team_power()
+    # Keep first paint fast. Heavy analytics, injury files, and team data are lazy.
+    sleepers=enrich_sleepers(sleeper_candidates(ranks),{})
     data.update({
-        "rankings":ranks,"analytics":analytics,"sleepers":sleepers,"injury_risk":risk,
-        "offenses":offenses,"defenses":defenses,
+        "rankings":ranks,
+        "analytics":{},
+        "sleepers":sleepers,
+        "injury_risk":[],
+        "offenses":[],
+        "defenses":[],
         "meta":{
             "season":SEASON,"prior_season":PRIOR_SEASON,"scoring":scoring,
             "fantasypros_live":bool(FANTASYPROS_KEY),
-            "analytics_live":bool(analytics),"analytics_error":analytics_error,
+            "analytics_live":True,
             "projection_model":"5-season recency-weighted PPG + capped trend adjustment",
             "injury_history_through":2024,
-            "source_status":SOURCE_STATE,
+            "progressive_loading":True,
+            "source_status":dict(SOURCE_STATE),
             "counts":{p:len(ranks.get(p,[])) for p in ALL_POSITIONS},
             "updated":int(time.time())
         }
     })
     return jsonify(data)
 
+@app.get("/api/player-analysis")
+def player_analysis_api():
+    name=request.args.get("name","").strip()
+    pos=request.args.get("position","").strip().upper()
+    scoring=request.args.get("scoring","PPR").upper()
+    if not name or pos not in ("QB","RB","WR","TE","K"):
+        return jsonify({"error":"name and valid position required"}),400
+    if scoring not in SCORING: scoring="PPR"
+    result=player_analysis_one(name,pos,scoring)
+    if result is None:
+        return jsonify({"error":"Historical production data unavailable for this player"}),404
+    return jsonify(result)
+
+@app.get("/api/injury-risk")
+def injury_risk_api():
+    scoring=request.args.get("scoring","PPR").upper()
+    if scoring not in SCORING: scoring="PPR"
+    ranks=rankings(scoring)
+    return jsonify({
+        "items":injury_risk(ranks),
+        "injury_history_through":2024,
+        "sources":dict(SOURCE_STATE)
+    })
+
+@app.get("/api/team-power")
+def team_power_api():
+    offenses,defenses=team_power()
+    return jsonify({
+        "offenses":offenses,
+        "defenses":defenses,
+        "sources":dict(SOURCE_STATE)
+    })
+
 @app.get("/api/diagnostics")
 def diagnostics():
     scoring=request.args.get("scoring","PPR").upper()
-    d=dashboard().get_json()
-    return jsonify({"counts":d["meta"]["counts"],"sources":d["meta"]["source_status"],"analytics_error":d["meta"].get("analytics_error")})
+    if scoring not in SCORING: scoring="PPR"
+    ranks=rankings(scoring)
+    return jsonify({
+        "status":"ok",
+        "counts":{p:len(ranks.get(p,[])) for p in ALL_POSITIONS},
+        "sources":dict(SOURCE_STATE),
+        "progressive_loading":True,
+        "note":"Player analytics, injury history, and team power load on demand."
+    })
 
 @app.get("/api/sleeper/leagues")
 def leagues():

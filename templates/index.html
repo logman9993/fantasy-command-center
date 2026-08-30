@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b1020"><title>Fantasy Command Center V6</title>
+<meta name="theme-color" content="#0b1020"><title>Fantasy Command Center V6.2</title>
 <link rel="manifest" href="/static/manifest.json">
 <style>
 :root{--bg:#070b14;--panel:#0f1728;--panel2:#131e34;--text:#eef4ff;--muted:#8fa2c4;--accent:#5ae0a0;--blue:#5bbcff;--red:#ff6b78;--gold:#ffd166;--line:#22304d}
@@ -31,7 +31,7 @@ select,input,button{width:100%;background:var(--panel);border:1px solid var(--li
 @media(max-width:720px){.grid{grid-template-columns:1fr}.controls{grid-template-columns:1fr}.analytics,.detailbox{margin-left:0}.kpis{grid-template-columns:repeat(2,1fr)}.health{grid-template-columns:1fr}}
 </style></head>
 <body><div class="wrap">
-<div class="hero"><div><h1>Fantasy Command Center <span style="color:var(--accent)">V6</span></h1><div class="tag">Draft board + explainable fantasy analysis.</div></div><div class="badge">{{ season }} • {{ "LIVE ECR" if live else "MODEL + SLEEPER" }}</div></div>
+<div class="hero"><div><h1>Fantasy Command Center <span style="color:var(--accent)">V6.2</span></h1><div class="tag">Draft board + explainable fantasy analysis.</div></div><div class="badge">{{ season }} • {{ "LIVE ECR" if live else "MODEL + SLEEPER" }}</div></div>
 <div class="controls"><select id="scoring"><option>PPR</option><option>HALF</option><option>STD</option></select><button id="refreshBtn">Refresh Board</button></div>
 <div id="notice" class="notice">Loading Top 25 rankings, player analysis and team intelligence…</div>
 <div class="tabs">
@@ -57,17 +57,33 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&
 const key=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 
 function analyticsHTML(p){
- const a=board?.analytics?.[key(p.name)], id="a-"+key(p.name);
- if(!a)return `<div class="analytics" id="${id}"><div class="sub">No historical production match found. Current ranking source: ${esc(p.source||"fallback")}.</div></div>`;
- const kpis=(a.kpis||[]).map(k=>`<div class="kpi"><b>${esc(k.value)}</b><span>${esc(k.label)}${k.rank?` • ${p.position} #${k.rank}`:""}</span></div>`).join("");
- const history=(a.history||[]).map(h=>`${h.season}: ${h.ppg} PPG`).join(" • ");
- return `<div class="analytics" id="${id}">
- <div class="bigstats"><div class="bigstat"><div class="v">${a.last_year_ppg??"—"}</div><div class="l">${board.meta.prior_season} actual PPG</div></div><div class="bigstat"><div class="v">${a.projected_ppg??"—"}</div><div class="l">${board.meta.season} model PPG</div></div></div>
- <div class="kpis">${kpis}</div><div class="analysisText"><b>Analysis:</b> ${esc(a.analysis||"")}</div><div class="history">${a.model_years} season${a.model_years===1?"":"s"} used • ${history}</div></div>`;
+ const id="a-"+key(p.name);
+ return `<div class="analytics" id="${id}" data-loaded="0">
+   <div class="sub">Tap the player row to load 5-year production analysis.</div>
+ </div>`;
+}
+async function loadPlayerAnalysis(p){
+ const panel=document.getElementById("a-"+key(p.name));
+ if(!panel || panel.dataset.loaded==="1" || panel.dataset.loading==="1")return;
+ panel.dataset.loading="1";
+ panel.classList.add("open");
+ panel.innerHTML=`<div class="sub">Loading 5-year production history and KPI analysis…</div>`;
+ try{
+   const scoring=document.getElementById("scoring").value;
+   const r=await fetch(`/api/player-analysis?name=${encodeURIComponent(p.name)}&position=${encodeURIComponent(p.position)}&scoring=${encodeURIComponent(scoring)}`);
+   const a=await r.json();
+   if(!r.ok)throw new Error(a.error||`HTTP ${r.status}`);
+   const kpis=(a.kpis||[]).map(k=>`<div class="kpi"><b>${esc(k.value)}</b><span>${esc(k.label)}${k.rank?` • ${p.position} #${k.rank}`:""}</span></div>`).join("");
+   const history=(a.history||[]).map(h=>`${h.season}: ${h.ppg} PPG`).join(" • ");
+   panel.innerHTML=`<div class="bigstats"><div class="bigstat"><div class="v">${a.last_year_ppg??"—"}</div><div class="l">${board.meta.prior_season} actual PPG</div></div><div class="bigstat"><div class="v">${a.projected_ppg??"—"}</div><div class="l">${board.meta.season} model PPG</div></div></div><div class="kpis">${kpis}</div><div class="analysisText"><b>Analysis:</b> ${esc(a.analysis||"")}</div><div class="history">${a.model_years} season${a.model_years===1?"":"s"} used • ${history}</div>`;
+   panel.dataset.loaded="1";
+ }catch(e){
+   panel.innerHTML=`<div class="sub">Analysis unavailable: ${esc(e.message)}</div>`;
+ }finally{panel.dataset.loading="0"}
 }
 function rankingRows(items,pos){
  if(!items?.length)return `<div class="empty">No ${pos} data returned. Check Data Health.</div>`;
- return items.map((p,i)=>`<div><div class="row clickable" data-player="${key(p.name)}"><div class="rank">${i+1}</div><div><div class="name">${esc(p.name)}</div><div class="sub">${esc(p.team||"")} • ${esc(p.position||pos)}${p.starter_basis?" • "+esc(p.starter_basis):""}</div><div class="source">${esc(p.source||"")}</div></div><div class="pill">${p.tier?"T"+p.tier:"#"+(p.rank||i+1)}</div></div>${analyticsHTML(p)}</div>`).join("");
+ return items.map((p,i)=>`<div><div class="row clickable" data-pos="${esc(pos)}" data-index="${i}"><div class="rank">${i+1}</div><div><div class="name">${esc(p.name)}</div><div class="sub">${esc(p.team||"")} • ${esc(p.position||pos)}${p.starter_basis?" • "+esc(p.starter_basis):""}</div><div class="source">${esc(p.source||"")}</div></div><div class="pill">${p.tier?"T"+p.tier:"#"+(p.rank||i+1)}</div></div>${analyticsHTML(p)}</div>`).join("");
 }
 function sleeperRows(items){
  if(!items?.length)return `<div class="empty">No sleeper candidates returned. Check Data Health.</div>`;
@@ -93,28 +109,71 @@ function healthRows(meta){
  const counts=Object.entries(meta?.counts||{}).map(([p,n])=>`<div class="healthItem"><b>${p} ranking count</b><div class="${n>=25?"good":"bad"}">${n} / 25</div></div>`);
  return [...counts,...items].join("");
 }
+let riskLoaded=false, teamsLoaded=false;
+function mergeSources(extra){
+ if(!board.meta.source_status)board.meta.source_status={};
+ Object.assign(board.meta.source_status,extra||{});
+ document.getElementById("healthArea").innerHTML=healthRows(board.meta);
+}
 function render(){
  document.getElementById("rankingGrid").innerHTML=["QB","RB","WR","TE","K","DST"].map(pos=>`<div class="card"><h2>${pos} Top 25</h2>${rankingRows(board.rankings[pos],pos)}</div>`).join("");
  document.getElementById("sleepersList").innerHTML=sleeperRows(board.sleepers);
- document.getElementById("riskList").innerHTML=injuryRows(board.injury_risk);
- document.getElementById("defenses").innerHTML=teamRows(board.defenses);
- document.getElementById("offenses").innerHTML=teamRows(board.offenses);
+ document.getElementById("riskList").innerHTML=`<div class="empty">Open this tab to load injury history.</div>`;
+ document.getElementById("defenses").innerHTML=`<div class="empty">Open this tab to load team statistics.</div>`;
+ document.getElementById("offenses").innerHTML=`<div class="empty">Open this tab to load team statistics.</div>`;
  document.getElementById("healthArea").innerHTML=healthRows(board.meta);
- document.querySelectorAll("[data-player]").forEach(el=>el.addEventListener("click",()=>document.getElementById("a-"+el.dataset.player)?.classList.toggle("open")));
+ document.querySelectorAll("[data-pos][data-index]").forEach(el=>el.addEventListener("click",()=>{
+   const p=board.rankings[el.dataset.pos][Number(el.dataset.index)];
+   const panel=document.getElementById("a-"+key(p.name));
+   if(panel.dataset.loaded==="1"){panel.classList.toggle("open");return;}
+   loadPlayerAnalysis(p);
+ }));
+}
+async function loadRisk(){
+ if(riskLoaded)return;
+ const el=document.getElementById("riskList");
+ el.innerHTML=`<div class="empty">Loading current designations and historical injury reports…</div>`;
+ try{
+  const scoring=document.getElementById("scoring").value;
+  const r=await fetch(`/api/injury-risk?scoring=${encodeURIComponent(scoring)}`);
+  const d=await r.json(); if(!r.ok)throw new Error(d.error||`HTTP ${r.status}`);
+  el.innerHTML=injuryRows(d.items); riskLoaded=true; mergeSources(d.sources);
+ }catch(e){el.innerHTML=`<div class="empty">Injury data failed: ${esc(e.message)}</div>`}
+}
+async function loadTeams(){
+ if(teamsLoaded)return;
+ document.getElementById("defenses").innerHTML=`<div class="empty">Loading league defensive statistics…</div>`;
+ document.getElementById("offenses").innerHTML=`<div class="empty">Loading league offensive statistics…</div>`;
+ try{
+  const r=await fetch(`/api/team-power`);
+  const d=await r.json(); if(!r.ok)throw new Error(d.error||`HTTP ${r.status}`);
+  document.getElementById("defenses").innerHTML=teamRows(d.defenses);
+  document.getElementById("offenses").innerHTML=teamRows(d.offenses);
+  teamsLoaded=true; mergeSources(d.sources);
+ }catch(e){
+  document.getElementById("defenses").innerHTML=`<div class="empty">Team data failed: ${esc(e.message)}</div>`;
+  document.getElementById("offenses").innerHTML=`<div class="empty">Team data failed: ${esc(e.message)}</div>`;
+ }
 }
 async function loadBoard(){
  const scoring=document.getElementById("scoring").value, notice=document.getElementById("notice");
- notice.textContent="Refreshing rankings, analytics and team statistics…";
+ riskLoaded=false; teamsLoaded=false;
+ notice.textContent="Loading the draft board…";
  try{
   const r=await fetch(`/api/dashboard?scoring=${encodeURIComponent(scoring)}`);
   if(!r.ok)throw new Error(`HTTP ${r.status}`);
   board=await r.json(); render();
   const counts=Object.values(board.meta.counts||{}), full=counts.filter(x=>x>=25).length;
-  notice.textContent=`${full}/6 position boards at 25 • ${board.meta.analytics_live?"Player analytics enabled":"Historical analytics unavailable"} • ${scoring}`;
+  notice.textContent=`Draft board ready • ${full}/6 position boards at 25 • deeper analysis loads on demand • ${scoring}`;
  }catch(e){notice.textContent="Dashboard failed: "+e.message}
 }
 document.getElementById("refreshBtn").addEventListener("click",loadBoard);
-document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));document.getElementById(b.dataset.target).classList.add("active")}));
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");
+ document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));document.getElementById(b.dataset.target).classList.add("active");
+ if(b.dataset.target==="risk")loadRisk();
+ if(b.dataset.target==="teams")loadTeams();
+}));
 document.getElementById("findBtn").addEventListener("click",findLeagues);
 async function findLeagues(){
  const u=document.getElementById("username").value.trim(); if(!u)return;
