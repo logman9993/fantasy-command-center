@@ -235,3 +235,36 @@ V7 keeps the V6.2 progressive-loading architecture and adds a fantasy-app style 
 - richer Data Health cards
 
 The interface intentionally borrows common fantasy-product interaction patterns without copying any third-party brand or visual identity.
+
+
+## V7.1 — ESPN Cache + News Radar
+
+### ESPN cache
+ESPN team-stat fallback now uses a stale-safe disk cache:
+- current-season ESPN data: 6-hour refresh
+- completed-season ESPN data: 30-day refresh
+- current-season stale fallback: up to 7 days
+- historical stale fallback: up to 180 days
+
+If an ESPN refresh fails, the last successful cache is served instead of returning an empty team panel.
+
+### News Radar
+A new lazy-loaded News Radar tab aggregates recent NFL/fantasy articles from:
+- ESPN
+- NFL.com
+- CBS Sports
+- FantasyPros
+- Yahoo Sports
+
+Primary direct feeds are used where available. Source-restricted Google News RSS is used as a discovery fallback for sites without a convenient public RSS endpoint.
+
+News behavior:
+- cached for 30 minutes
+- last successful feed can be served for up to 24 hours if refresh providers fail
+- up to 60 deduplicated stories
+- filters by publisher
+- direct external article links
+- ranking uses freshness + fantasy-football keyword relevance
+- ranking is not presented as publisher view-count/popularity data
+
+The News tab loads on demand so it does not slow the initial Render dashboard request.

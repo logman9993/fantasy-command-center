@@ -1,10 +1,13 @@
 
 from flask import Flask, render_template, jsonify, request
-import os, json, time, csv, io, math, statistics, re
+import os, json, time, csv, io, math, statistics, re, html as html_lib
 from pathlib import Path
 from difflib import SequenceMatcher
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from email.utils import parsedate_to_datetime
+from urllib.parse import quote_plus
+import xml.etree.ElementTree as ET
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -81,6 +84,40 @@ def cached_json(name, ttl, loader):
     data = loader()
     p.write_text(json.dumps(data), encoding="utf-8")
     return data
+
+def stale_cached_json(name, ttl, stale_ttl, loader, force=False):
+    """
+    Return (data, metadata). Fresh cache is preferred. If refresh fails, a
+    previously successful cache can still be served until stale_ttl.
+    """
+    p = CACHE_DIR / f"{name}.json"
+    now = time.time()
+    existing = None
+    age = None
+    if p.exists():
+        try:
+            age = max(0, now - p.stat().st_mtime)
+            existing = json.loads(p.read_text(encoding="utf-8"))
+            if not force and age < ttl:
+                return existing, {"cached": True, "stale": False, "age_seconds": int(age)}
+        except Exception:
+            existing = None
+            age = None
+    try:
+        data = loader()
+        p.write_text(json.dumps(data), encoding="utf-8")
+        return data, {"cached": False, "stale": False, "age_seconds": 0}
+    except Exception as e:
+        if existing is not None and age is not None and age < stale_ttl:
+            return existing, {
+                "cached": True, "stale": True, "age_seconds": int(age),
+                "refresh_error": str(e)[:180]
+            }
+        raise
+
+def espn_cache_ttl(season):
+    # In-season ESPN information should turn over quickly; completed seasons do not.
+    return 21600 if int(season) >= SEASON else 2592000  # 6h vs 30d
 
 def cached_csv(name, ttl, urls, must_have):
     p = CACHE_DIR / f"{name}.csv"
@@ -802,8 +839,8 @@ def aggregate_nflverse_team_rows(rows):
         d["sacks"]+=num(r,"sacks_suffered"); d["takeaways"]+=tos; d["points_allowed"]+=pts
     return list(offenses.values()),list(defenses.values())
 
-def espn_flat_stats(team_id):
-    url=f"https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{PRIOR_SEASON}/types/2/teams/{team_id}/statistics"
+def espn_flat_stats(team_id, season):
+    url=f"https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{season}/types/2/teams/{team_id}/statistics"
     d=http_json(url)
     flat={}
     for cat in ((d.get("splits") or {}).get("categories") or []):
@@ -813,6 +850,16 @@ def espn_flat_stats(team_id):
                 flat[name]=s.get("value")
                 flat[name.lower()]=s.get("value")
     return flat
+
+def espn_cached_stats(team_id, season):
+    ttl=espn_cache_ttl(season)
+    # Completed-season caches can survive a long provider outage; current-season
+    # caches have a much shorter stale allowance.
+    stale_ttl = 15552000 if int(season) < SEASON else 604800  # 180d / 7d
+    return stale_cached_json(
+        f"espn_team_{season}_{team_id}", ttl, stale_ttl,
+        lambda: espn_flat_stats(team_id, season)
+    )
 
 def pickstat(flat,*names):
     for n in names:
@@ -828,12 +875,11 @@ def pickstat(flat,*names):
 def espn_team_fallback():
     rows=[]
     errors=0
+    stale_count=0
+    cache_hits=0
     def one(item):
         abbr,tid=item
-        flat=cached_json(
-            f"espn_team_{PRIOR_SEASON}_{tid}",86400*7,
-            lambda tid=tid:espn_flat_stats(tid)
-        )
+        flat,meta=espn_cached_stats(tid,PRIOR_SEASON)
         return {
             "team":abbr,
             "points":pickstat(flat,"totalPoints","pointsFor","points"),
@@ -843,16 +889,24 @@ def espn_team_fallback():
             "yards_allowed":pickstat(flat,"netYardsAllowed","totalYardsAllowed","yardsAllowed"),
             "sacks":pickstat(flat,"sacks","defensiveSacks"),
             "takeaways":pickstat(flat,"totalTakeaways","takeaways"),
+            "_cache_meta":meta
         }
     with ThreadPoolExecutor(max_workers=8) as ex:
         futures=[ex.submit(one,item) for item in ESPN_TEAMS.items()]
         for fut in as_completed(futures):
             try:
-                rows.append(fut.result())
+                row=fut.result()
+                meta=row.pop("_cache_meta",{})
+                if meta.get("cached"): cache_hits+=1
+                if meta.get("stale"): stale_count+=1
+                rows.append(row)
             except Exception:
                 errors+=1
     if rows:
-        source_ok("team_stats_espn",f"ESPN fallback: {len(rows)} teams ({errors} errors)")
+        source_ok(
+            "team_stats_espn",
+            f"ESPN cache: {len(rows)} teams • {cache_hits} cache hits • {stale_count} stale-served • {errors} errors"
+        )
     else:
         source_fail("team_stats_espn","No ESPN team statistics returned")
     return rows
@@ -970,7 +1024,7 @@ def health():
     return jsonify({
         "status": "ok",
         "app": "Fantasy Command Center",
-        "version": "7.0-ui",
+        "version": "7.1-news-cache",
         "season": SEASON,
         "time": int(time.time())
     })
@@ -1048,6 +1102,150 @@ def injury_risk_api():
         "sources":dict(SOURCE_STATE)
     })
 
+
+NEWS_CACHE_TTL = 1800       # 30 minutes
+NEWS_STALE_TTL = 86400      # serve last-good feed for up to 24 hours
+FANTASY_TERMS = (
+    "fantasy","draft","sleeper","waiver","breakout","rankings","adp","injury",
+    "rookie","start/sit","start sit","depth chart","target share","touches",
+    "league winner","riskiest","value","overvalued","undervalued"
+)
+
+def strip_markup(value):
+    text=re.sub(r"<[^>]+>"," ",value or "")
+    text=html_lib.unescape(text)
+    text=re.sub(r"\s+"," ",text).strip()
+    return text
+
+def parse_pubdate(value):
+    if not value:
+        return 0
+    try:
+        dt=parsedate_to_datetime(value)
+        return int(dt.timestamp())
+    except Exception:
+        return 0
+
+def rss_articles(url, source, limit=20):
+    text=http_text(url,timeout=12)
+    root=ET.fromstring(text)
+    out=[]
+    for item in root.findall(".//item")[:limit]:
+        title=strip_markup(item.findtext("title") or "")
+        link=(item.findtext("link") or "").strip()
+        desc=strip_markup(item.findtext("description") or "")
+        published=parse_pubdate(item.findtext("pubDate") or item.findtext("date") or "")
+        if not title or not link:
+            continue
+        out.append({
+            "title":title,
+            "url":link,
+            "summary":desc[:260],
+            "source":source,
+            "published_ts":published,
+        })
+    return out
+
+def google_news_rss(query, source, limit=15):
+    url=(
+        "https://news.google.com/rss/search?q="+quote_plus(query)+
+        "&hl=en-US&gl=US&ceid=US:en"
+    )
+    return rss_articles(url,source,limit)
+
+def fantasypros_news_api(limit=20):
+    if not FANTASYPROS_KEY:
+        return []
+    try:
+        payload=fp("/nfl/news",{"limit":limit,"order_by":"created"})
+        arr=payload.get("items") or payload.get("news") or payload.get("player_news") or []
+        out=[]
+        for x in arr:
+            title=x.get("title") or x.get("headline") or ""
+            link=x.get("url") or x.get("link") or x.get("source_url") or ""
+            summary=x.get("description") or x.get("summary") or x.get("analysis") or ""
+            created=x.get("created") or x.get("created_at") or x.get("updated") or ""
+            published=0
+            if isinstance(created,(int,float)):
+                published=int(created)
+            elif created:
+                try:
+                    published=int(parsedate_to_datetime(created).timestamp())
+                except Exception:
+                    try:
+                        published=int(__import__("datetime").datetime.fromisoformat(created.replace("Z","+00:00")).timestamp())
+                    except Exception:
+                        published=0
+            if title and link:
+                out.append({
+                    "title":strip_markup(title),"url":link,"summary":strip_markup(summary)[:260],
+                    "source":"FantasyPros","published_ts":published
+                })
+        return out
+    except Exception as e:
+        source_fail("news_fantasypros_api",e)
+        return []
+
+def article_relevance(article):
+    blob=(article.get("title","")+" "+article.get("summary","")).lower()
+    hits=sum(1 for term in FANTASY_TERMS if term in blob)
+    age_hours=max(0,(time.time()-(article.get("published_ts") or 0))/3600) if article.get("published_ts") else 240
+    freshness=max(0,100-age_hours*2.2)
+    source_bonus={"NFL.com":10,"FantasyPros":10,"ESPN":8,"CBS Sports":6,"Yahoo Sports":5}.get(article.get("source"),0)
+    return round(freshness + hits*16 + source_bonus,2)
+
+def build_news_feed():
+    jobs=[
+        ("ESPN",lambda:rss_articles("https://www.espn.com/espn/rss/nfl/news","ESPN",25)),
+        ("CBS Sports",lambda:rss_articles("https://www.cbssports.com/rss/headlines/nfl","CBS Sports",25)),
+        ("NFL.com",lambda:google_news_rss('fantasy football site:nfl.com/news',"NFL.com",20)),
+        ("FantasyPros",lambda:(fantasypros_news_api(20) or google_news_rss('fantasy football site:fantasypros.com',"FantasyPros",20))),
+        ("Yahoo Sports",lambda:google_news_rss('fantasy football site:sports.yahoo.com',"Yahoo Sports",15)),
+    ]
+    articles=[]
+    source_results={}
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        futures={ex.submit(fn):name for name,fn in jobs}
+        for fut in as_completed(futures):
+            name=futures[fut]
+            try:
+                items=fut.result()
+                source_results[name]={"ok":True,"count":len(items)}
+                articles.extend(items)
+            except Exception as e:
+                source_results[name]={"ok":False,"count":0,"error":str(e)[:160]}
+
+    # Deduplicate syndicated/repeated headlines.
+    dedup={}
+    for a in articles:
+        k=re.sub(r"[^a-z0-9]+"," ",a["title"].lower()).strip()
+        if not k:
+            continue
+        a["trend_score"]=article_relevance(a)
+        current=dedup.get(k)
+        if current is None or (a.get("published_ts") or 0) > (current.get("published_ts") or 0):
+            dedup[k]=a
+
+    ordered=sorted(
+        dedup.values(),
+        key=lambda a:(a.get("trend_score",0),a.get("published_ts",0)),
+        reverse=True
+    )
+    # Keep enough stories to make source filters useful while bounding payload.
+    return {
+        "generated_at":int(time.time()),
+        "items":ordered[:60],
+        "source_results":source_results,
+        "ranking_note":"Ordered by freshness and fantasy relevance; not publisher view counts."
+    }
+
+def cached_news_feed(force=False):
+    return stale_cached_json(
+        "fantasy_news_feed",NEWS_CACHE_TTL,NEWS_STALE_TTL,
+        build_news_feed,force=force
+    )
+
+
 @app.get("/api/team-power")
 def team_power_api():
     offenses,defenses=team_power()
@@ -1056,6 +1254,29 @@ def team_power_api():
         "defenses":defenses,
         "sources":dict(SOURCE_STATE)
     })
+
+@app.get("/api/news")
+def news_api():
+    force=request.args.get("force","0")=="1"
+    # Avoid turning a public refresh button into an upstream hammer: a forced
+    # refresh is honored only if the existing cache is at least 5 minutes old.
+    p=CACHE_DIR/"fantasy_news_feed.json"
+    if force and p.exists() and time.time()-p.stat().st_mtime < 300:
+        force=False
+    try:
+        data,meta=cached_news_feed(force=force)
+        source_ok(
+            "news_feed",
+            f"{len(data.get('items',[]))} articles • {'stale cache' if meta.get('stale') else 'fresh/cache'}"
+        )
+        return jsonify({
+            **data,
+            "cache":meta,
+            "sources":dict(SOURCE_STATE)
+        })
+    except Exception as e:
+        source_fail("news_feed",e)
+        return jsonify({"error":"news_unavailable","message":str(e),"items":[],"sources":dict(SOURCE_STATE)}),503
 
 @app.get("/api/diagnostics")
 def diagnostics():
@@ -1067,7 +1288,7 @@ def diagnostics():
         "counts":{p:len(ranks.get(p,[])) for p in ALL_POSITIONS},
         "sources":dict(SOURCE_STATE),
         "progressive_loading":True,
-        "note":"Player analytics, injury history, and team power load on demand."
+        "note":"Player analytics, injury history, team power, and News Radar load on demand. ESPN and news feeds use disk caches."
     })
 
 @app.get("/api/sleeper/leagues")

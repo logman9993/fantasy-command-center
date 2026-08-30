@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08111d">
-<title>Fantasy Command Center V7</title>
+<title>Fantasy Command Center V7.1</title>
 <link rel="manifest" href="/static/manifest.json">
 <style>
 :root{
@@ -175,6 +175,28 @@ a{color:inherit}
 .teamStatName{font-size:10px;color:var(--muted)}.leagueTrack{height:6px;background:#08131f;border-radius:999px;overflow:hidden}.leagueFill{height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:999px}.teamStatValue{font-size:10px;text-align:right;font-weight:850}
 .teamAnalysis{margin-top:11px;padding:10px;border-radius:11px;background:#0b1a2a;font-size:12px;line-height:1.48;color:#d8e2ee}
 
+
+.newsToolbar{display:flex;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:11px}
+.newsFilters{display:flex;gap:6px;overflow:auto;scrollbar-width:none}.newsFilters::-webkit-scrollbar{display:none}
+.newsFilter{border:1px solid var(--line);background:#0b1929;color:var(--muted);border-radius:999px;padding:8px 11px;font-size:11px;font-weight:900;white-space:nowrap}
+.newsFilter.active{background:var(--accent);border-color:var(--accent);color:#06140d}
+.newsRefresh{width:auto;padding:0 12px;min-height:38px}
+.newsMeta{font-size:11px;color:var(--muted);margin-bottom:11px}
+.newsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.newsCard{display:block;text-decoration:none;border:1px solid var(--line);border-radius:18px;background:rgba(14,26,42,.92);padding:14px;transition:transform .14s ease,border-color .14s ease,background .14s ease}
+.newsCard:hover{transform:translateY(-2px);border-color:#355678;background:#102039}
+.newsCard.featured{grid-column:1/-1;background:linear-gradient(130deg,#13283f,#0d1d30);padding:18px}
+.newsTop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.newsSource{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:950;background:#0a1725;border:1px solid var(--line);color:var(--cyan)}
+.newsAge{font-size:10px;color:var(--muted)}
+.newsTitle{font-size:17px;font-weight:950;line-height:1.18;letter-spacing:-.25px;margin-top:10px}.newsCard.featured .newsTitle{font-size:23px;max-width:850px}
+.newsSummary{font-size:12px;line-height:1.48;color:var(--muted);margin-top:8px}
+.newsBottom{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:13px;padding-top:10px;border-top:1px solid var(--line)}
+.newsTrend{font-size:10px;color:var(--gold);font-weight:900}.newsOpen{font-size:11px;color:var(--accent);font-weight:900}
+.cacheBadge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:900;background:#0b1929;border:1px solid var(--line);color:var(--muted)}
+.cacheBadge.stale{color:var(--gold);border-color:rgba(255,201,95,.25)}
+@media(max-width:760px){.newsGrid{grid-template-columns:1fr}.newsCard.featured{grid-column:auto}.newsCard.featured .newsTitle{font-size:19px}}
+
 .healthGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .healthItem{padding:11px;border:1px solid var(--line);background:#0b1929;border-radius:12px}.healthItem b{font-size:11px}.healthState{font-size:12px;font-weight:900;margin-top:5px}.good{color:var(--accent)}.bad{color:var(--red)}.healthDesc{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.35}
 
@@ -203,7 +225,7 @@ a{color:inherit}
   .sectionHeader{align-items:flex-start}.sectionActions{display:none}.playerMain{grid-template-columns:31px 38px minmax(0,1fr) auto;padding:10px 9px;gap:8px}.avatar{width:38px;height:38px}
   .playerActions .compareToggle{display:none}.analyzeBtn{padding:0 7px}.kpis{grid-template-columns:repeat(2,1fr)}.featureGrid,.teamGrid{grid-template-columns:1fr}
   .healthGrid{grid-template-columns:1fr}.watchGrid{grid-template-columns:repeat(2,1fr)}.compareGrid{grid-template-columns:1fr}.modalBackdrop{padding:9px}
-  .bottomNav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:8px;right:8px;bottom:8px;z-index:40;border:1px solid var(--line);background:rgba(8,18,30,.96);backdrop-filter:blur(15px);border-radius:18px;padding:6px;box-shadow:var(--shadow)}
+  .bottomNav{display:grid;grid-template-columns:repeat(6,1fr);position:fixed;left:8px;right:8px;bottom:8px;z-index:40;border:1px solid var(--line);background:rgba(8,18,30,.96);backdrop-filter:blur(15px);border-radius:18px;padding:6px;box-shadow:var(--shadow)}
   .bottomNav button{border:0;background:transparent;color:var(--muted);padding:7px 3px;border-radius:11px;font-size:9px;font-weight:850}.bottomNav button span{display:block;font-size:17px;margin-bottom:2px}.bottomNav button.active{background:#13273d;color:var(--accent)}
 }
 @media(max-width:420px){
@@ -215,12 +237,13 @@ a{color:inherit}
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand"><div class="logo">F</div><div class="brandName">Fantasy<br>Command Center<small>V7 • DRAFT INTELLIGENCE</small></div></div>
+    <div class="brand"><div class="logo">F</div><div class="brandName">Fantasy<br>Command Center<small>V7.1 • DRAFT INTELLIGENCE</small></div></div>
     <nav class="nav">
       <button class="navBtn active" data-target="rankings"><span class="navIcon">⌁</span>Draft Board</button>
       <button class="navBtn" data-target="sleepers"><span class="navIcon">✦</span>Sleepers</button>
       <button class="navBtn" data-target="risk"><span class="navIcon">⚕</span>Injury Risk</button>
       <button class="navBtn" data-target="teams"><span class="navIcon">◈</span>Team Power</button>
+      <button class="navBtn" data-target="news"><span class="navIcon">◌</span>News Radar</button>
       <button class="navBtn" data-target="watch"><span class="navIcon">★</span>Watchlist</button>
       <button class="navBtn" data-target="roster"><span class="navIcon">☷</span>My Team</button>
       <button class="navBtn" data-target="health"><span class="navIcon">◉</span>Data Health</button>
@@ -276,6 +299,23 @@ a{color:inherit}
       <div id="offenses" class="teamGrid"><div class="empty">Open this tab to load offensive metrics.</div></div>
     </section>
 
+    <section id="news" class="section">
+      <div class="sectionHeader"><div><h2>News Radar</h2><p>Fresh fantasy/NFL articles from major sources, cached so the dashboard stays fast.</p></div></div>
+      <div class="newsToolbar">
+        <div class="newsFilters" id="newsFilters">
+          <button class="newsFilter active" data-news-source="ALL">All</button>
+          <button class="newsFilter" data-news-source="ESPN">ESPN</button>
+          <button class="newsFilter" data-news-source="NFL.com">NFL.com</button>
+          <button class="newsFilter" data-news-source="CBS Sports">CBS</button>
+          <button class="newsFilter" data-news-source="FantasyPros">FantasyPros</button>
+          <button class="newsFilter" data-news-source="Yahoo Sports">Yahoo</button>
+        </div>
+        <button id="newsRefreshBtn" class="primaryBtn newsRefresh">↻ Update feed</button>
+      </div>
+      <div id="newsMeta" class="newsMeta">Open this tab to load the latest feed.</div>
+      <div id="newsList" class="newsGrid"><div class="empty">News loads on demand.</div></div>
+    </section>
+
     <section id="watch" class="section">
       <div class="sectionHeader"><div><h2>My Watchlist</h2><p>Players you starred on this browser. Great for draft-day targets.</p></div><div class="sectionActions"><button id="clearWatchBtn" class="iconBtn" style="width:auto;padding:0 10px">Clear</button></div></div>
       <div id="watchArea"></div>
@@ -305,6 +345,7 @@ a{color:inherit}
   <button data-target="sleepers"><span>✦</span>Sleepers</button>
   <button data-target="risk"><span>⚕</span>Risk</button>
   <button data-target="teams"><span>◈</span>Teams</button>
+  <button data-target="news"><span>◌</span>News</button>
   <button data-target="watch"><span>★</span>Watch</button>
 </nav>
 
@@ -315,7 +356,8 @@ a{color:inherit}
 <script>
 let board=null;
 let activePosition="ALL";
-let riskLoaded=false,teamsLoaded=false;
+let riskLoaded=false,teamsLoaded=false,newsLoaded=false;
+let newsData=null,newsSource='ALL';
 let compareList=[];
 const POS_COLOR={QB:"var(--qb)",RB:"var(--rb)",WR:"var(--wr)",TE:"var(--te)",K:"var(--k)",DST:"var(--dst)"};
 const TEAM_NAMES={ARI:"Arizona",ATL:"Atlanta",BAL:"Baltimore",BUF:"Buffalo",CAR:"Carolina",CHI:"Chicago",CIN:"Cincinnati",CLE:"Cleveland",DAL:"Dallas",DEN:"Denver",DET:"Detroit",GB:"Green Bay",HOU:"Houston",IND:"Indianapolis",JAX:"Jacksonville",KC:"Kansas City",LV:"Las Vegas",LAC:"LA Chargers",LAR:"LA Rams",MIA:"Miami",MIN:"Minnesota",NE:"New England",NO:"New Orleans",NYG:"NY Giants",NYJ:"NY Jets",PHI:"Philadelphia",PIT:"Pittsburgh",SF:"San Francisco",SEA:"Seattle",TB:"Tampa Bay",TEN:"Tennessee",WSH:"Washington"};
@@ -337,6 +379,7 @@ function switchSection(target){
  document.querySelectorAll("[data-target]").forEach(x=>x.classList.toggle("active",x.dataset.target===target));
  if(target==="risk")loadRisk();
  if(target==="teams")loadTeams();
+ if(target==="news")loadNews();
  if(target==="watch")renderWatchlist();
  window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -473,6 +516,55 @@ async function runCompare(){
  grid.innerHTML=results.map(({p,a,ok})=>{if(!ok)return `<div class="compareCard"><h4>${esc(p.name)}</h4><div class="empty">${esc(a.error||"Analysis unavailable")}</div></div>`;const best=(a.kpis||[]).filter(k=>k.rank).sort((x,y)=>x.rank-y.rank).slice(0,3);return `<div class="compareCard"><h4>${esc(p.name)}</h4><div class="playerSub">${esc(p.team)} • ${esc(p.position)}</div><div class="compareMetric"><span>2025 PPG</span><b>${a.last_year_ppg??"—"}</b></div><div class="compareMetric"><span>2026 model</span><b>${a.projected_ppg??"—"}</b></div><div class="compareMetric"><span>Years modeled</span><b>${a.model_years}</b></div>${best.map(k=>`<div class="compareMetric"><span>${esc(k.label)}</span><b>${esc(k.value)} · #${k.rank}</b></div>`).join("")}<div class="analysisText">${esc(a.analysis||"")}</div></div>`}).join("");
 }
 
+
+function relativeAge(ts){
+ if(!ts)return "recent";
+ const seconds=Math.max(0,Math.floor(Date.now()/1000-ts));
+ if(seconds<3600)return `${Math.max(1,Math.floor(seconds/60))}m ago`;
+ if(seconds<86400)return `${Math.floor(seconds/3600)}h ago`;
+ return `${Math.floor(seconds/86400)}d ago`;
+}
+function cacheAge(seconds){
+ if(seconds==null)return "";
+ if(seconds<60)return "just now";
+ if(seconds<3600)return `${Math.floor(seconds/60)} min ago`;
+ if(seconds<86400)return `${Math.floor(seconds/3600)} hr ago`;
+ return `${Math.floor(seconds/86400)} d ago`;
+}
+function renderNews(){
+ const list=document.getElementById("newsList");
+ if(!newsData){list.innerHTML=`<div class="empty">News has not loaded yet.</div>`;return}
+ const items=(newsData.items||[]).filter(a=>newsSource==="ALL"||a.source===newsSource);
+ if(!items.length){list.innerHTML=`<div class="empty">No recent articles returned for ${esc(newsSource)}.</div>`;return}
+ list.innerHTML=items.map((a,i)=>`<a class="newsCard ${i===0&&newsSource==="ALL"?"featured":""}" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">
+   <div class="newsTop"><span class="newsSource">${esc(a.source)}</span><span class="newsAge">${relativeAge(a.published_ts)}</span></div>
+   <div class="newsTitle">${esc(a.title)}</div>
+   ${a.summary?`<div class="newsSummary">${esc(a.summary)}</div>`:""}
+   <div class="newsBottom"><span class="newsTrend">Freshness + fantasy relevance</span><span class="newsOpen">Read article ↗</span></div>
+ </a>`).join("");
+}
+function updateNewsMeta(){
+ if(!newsData)return;
+ const c=newsData.cache||{};
+ const generated=newsData.generated_at?relativeAge(newsData.generated_at):"";
+ document.getElementById("newsMeta").innerHTML=`${(newsData.items||[]).length} articles • feed built ${generated} • <span class="cacheBadge ${c.stale?"stale":""}">${c.stale?"⚠ stale-safe cache":"✓ cached"}${c.cached?` • ${cacheAge(c.age_seconds)}`:""}</span> • ${esc(newsData.ranking_note||"")}`;
+}
+async function loadNews(force=false){
+ if(newsLoaded&&!force){renderNews();return}
+ const list=document.getElementById("newsList");
+ list.innerHTML=`<div class="empty">Loading ESPN, NFL.com, CBS, FantasyPros and Yahoo news…</div>`;
+ document.getElementById("newsMeta").textContent="Refreshing cached news sources…";
+ try{
+  const r=await fetch(`/api/news${force?"?force=1":""}`);
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.message||d.error||`HTTP ${r.status}`);
+  newsData=d;newsLoaded=true;renderNews();updateNewsMeta();mergeSources(d.sources);
+ }catch(e){
+  list.innerHTML=`<div class="empty">News feed failed: ${esc(e.message)}</div>`;
+  document.getElementById("newsMeta").textContent="Unable to load news sources.";
+ }
+}
+
 function mergeSources(extra){if(!board.meta.source_status)board.meta.source_status={};Object.assign(board.meta.source_status,extra||{});document.getElementById("healthArea").innerHTML=healthRows(board.meta)}
 
 async function loadRisk(){
@@ -505,6 +597,13 @@ async function loadBoard(){
 }
 document.getElementById("refreshBtn").addEventListener("click",loadBoard);
 document.getElementById("scoring").addEventListener("change",loadBoard);
+
+
+document.querySelectorAll("[data-news-source]").forEach(b=>b.addEventListener("click",()=>{
+ document.querySelectorAll("[data-news-source]").forEach(x=>x.classList.remove("active"));
+ b.classList.add("active");newsSource=b.dataset.newsSource;renderNews();
+}));
+document.getElementById("newsRefreshBtn").addEventListener("click",()=>loadNews(true));
 
 document.getElementById("findBtn").addEventListener("click",findLeagues);
 async function findLeagues(){
