@@ -970,7 +970,7 @@ def health():
     return jsonify({
         "status": "ok",
         "app": "Fantasy Command Center",
-        "version": "6.2-cloud",
+        "version": "7.0-ui",
         "season": SEASON,
         "time": int(time.time())
     })

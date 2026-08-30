@@ -213,3 +213,25 @@ The public dashboard now uses progressive loading:
 - Render uses one Gunicorn worker with multiple threads to reduce duplicated cache memory on the free instance.
 
 This specifically prevents Render's first `/api/dashboard` request from doing all expensive work before the browser can display anything.
+
+
+## V7 interactive UI
+
+V7 keeps the V6.2 progressive-loading architecture and adds a fantasy-app style presentation layer:
+
+- desktop sidebar + mobile bottom navigation
+- draft-room hero and live data status
+- player search
+- position filters
+- position-coded player identities
+- local browser watchlist
+- compare up to three ranked players
+- lazy five-year player-analysis cards
+- visual sleeper momentum bars
+- visual injury-risk bars
+- offense/defense league-rank bars
+- responsive player and team cards
+- improved Sleeper roster presentation
+- richer Data Health cards
+
+The interface intentionally borrows common fantasy-product interaction patterns without copying any third-party brand or visual identity.
