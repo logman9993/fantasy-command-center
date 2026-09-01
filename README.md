@@ -1,4 +1,4 @@
-# Fantasy Command Center V6.1 — Deployment Edition
+# Fantasy Command Center V8 — Deployment Edition
 
 **Public deployment instructions:** see [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
