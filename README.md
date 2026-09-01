@@ -268,3 +268,46 @@ News behavior:
 - ranking is not presented as publisher view-count/popularity data
 
 The News tab loads on demand so it does not slow the initial Render dashboard request.
+
+
+## V8 — League HQ + sports-product redesign
+
+### Interface
+V8 replaces the neon/gradient dashboard style with a denser editorial sports interface:
+- ink/navy navigation
+- warm off-white surfaces
+- burnt-orange accent
+- flatter cards and tighter spacing
+- roster/table views that prioritize information density
+- starters grouped separately from the bench
+- league and waiver context kept on the same League HQ screen
+
+### Sleeper League HQ
+Connect a Sleeper username and choose one of that user's 2026 leagues. The connection is read-only and requires no Sleeper password.
+
+League HQ retrieves:
+- league scoring settings and roster positions
+- all league rosters and users
+- the connected manager's roster
+- current NFL week and matchup when available
+- recent team transactions
+- current Sleeper player metadata
+- the actual unrostered/free-agent pool
+
+It then calculates:
+- overall roster grade relative to that league
+- league rank
+- QB/RB/WR/TE/K/DST position grades
+- starter strength
+- bench depth
+- roster diagnosis
+- top available pickups
+- lowest-value bench players
+- suggested add/drop pairs
+
+Player value uses prior-season fantasy production, current Command Center board rank, Sleeper market/search rank and current injury designation. Pickup recommendations also include the connected team's weakest positions and Sleeper add momentum.
+
+### Provider roadmap
+- Sleeper: live now
+- Yahoo: official Fantasy Sports API is available through Yahoo OAuth and is the recommended future integration path
+- ESPN: future adapter should use a secure authenticated integration for private leagues; V8 does not request or store ESPN passwords

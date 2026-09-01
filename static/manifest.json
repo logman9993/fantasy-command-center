@@ -1,8 +1,8 @@
 {
-  "name": "Fantasy Command Center V7.1",
+  "name": "Fantasy Command Center V8",
   "short_name": "Fantasy CC",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#07101b",
-  "theme_color": "#08111d"
+  "background_color": "#f2efe8",
+  "theme_color": "#17212b"
 }

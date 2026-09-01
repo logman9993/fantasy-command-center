@@ -1024,7 +1024,7 @@ def health():
     return jsonify({
         "status": "ok",
         "app": "Fantasy Command Center",
-        "version": "7.1-news-cache",
+        "version": "8.0-league-hq",
         "season": SEASON,
         "time": int(time.time())
     })
@@ -1043,6 +1043,338 @@ def not_found(error):
         "error": "not_found",
         "message": "That route does not exist."
     }), 404
+
+
+def sleeper_state():
+    try:
+        return cached_json(
+            "sleeper_nfl_state",900,
+            lambda:http_json("https://api.sleeper.app/v1/state/nfl")
+        )
+    except Exception:
+        return {"week":1,"season":str(SEASON),"season_type":"pre"}
+
+def league_scoring_mode(league):
+    rec=num(league.get("scoring_settings") or {},"rec",0)
+    if rec>=0.75:return "PPR"
+    if rec>=0.25:return "HALF"
+    return "STD"
+
+def grade_letter(score):
+    if score>=93:return "A+"
+    if score>=88:return "A"
+    if score>=84:return "A-"
+    if score>=80:return "B+"
+    if score>=75:return "B"
+    if score>=71:return "B-"
+    if score>=67:return "C+"
+    if score>=62:return "C"
+    if score>=58:return "C-"
+    if score>=53:return "D+"
+    if score>=48:return "D"
+    return "F"
+
+def percentile_rank(value,values):
+    vals=[v for v in values if v is not None]
+    if not vals:return 50.0
+    below=sum(1 for v in vals if v<value)
+    equal=sum(1 for v in vals if v==value)
+    return round(100*(below+0.5*equal)/len(vals),1)
+
+@lru_cache(maxsize=3)
+def league_value_map(scoring):
+    players=sleeper_players()
+    try:
+        prior=load_year_stats(PRIOR_SEASON)
+    except Exception:
+        prior=[]
+    exact,_=_row_index(prior) if prior else ({},{})
+    ranks=rankings(scoring)
+    rank_by_name={}
+    for pos,arr in ranks.items():
+        for i,p in enumerate(arr,1):
+            rank_by_name[norm_name(p.get("name"))]=(pos,i)
+
+    # Prior-season PPG distributions by position turn raw fantasy scoring into
+    # within-position percentiles.
+    ppg_by_pos={p:[] for p in ("QB","RB","WR","TE","K")}
+    raw_ppg={}
+    if prior:
+        for r in prior:
+            pos=(r.get("position") or r.get("position_group") or "").upper()
+            if pos=="PK":pos="K"
+            if pos not in ppg_by_pos:continue
+            name=r.get("player_display_name") or r.get("player_name") or r.get("name")
+            if not name:continue
+            g=games(r); ppg=fantasy_points(r,scoring)/g if g else 0
+            ppg_by_pos[pos].append(ppg)
+            raw_ppg[norm_name(name)]=(pos,ppg)
+
+    out={}
+    for pid,p in players.items():
+        pos=(p.get("position") or "").upper()
+        if pos=="PK":pos="K"
+        if pos=="DEF":pos="DST"
+        if pos not in ALL_POSITIONS:continue
+        name=player_name(p) or p.get("team") or str(pid)
+        n=norm_name(name)
+        prior_ppg=0.0
+        prod_pct=25.0
+        if n in raw_ppg:
+            _,prior_ppg=raw_ppg[n]
+            prod_pct=percentile_rank(prior_ppg,ppg_by_pos.get(pos,[]))
+        try:sr=float(p.get("search_rank"))
+        except:sr=9999
+        search_score=max(12,min(100,104-math.log10(max(1,sr))*27))
+        rank_info=rank_by_name.get(n)
+        board_score=20
+        board_rank=None
+        if rank_info:
+            board_rank=rank_info[1]
+            board_score=max(45,102-board_rank*2.25)
+        injury=(p.get("injury_status") or "").lower()
+        penalty=0
+        if "ir" in injury or "out" in injury:penalty=12
+        elif "doubt" in injury:penalty=7
+        elif "question" in injury:penalty=3
+        value=max(1,min(100,0.58*prod_pct+0.27*search_score+0.15*board_score-penalty))
+        out[str(pid)]={
+            "id":str(pid),"name":name,"team":p.get("team") or "",
+            "position":pos,"value":round(value,1),"prior_ppg":round(prior_ppg,1),
+            "board_rank":board_rank,"injury_status":p.get("injury_status") or "",
+            "search_rank":None if sr==9999 else int(sr)
+        }
+    # Sleeper DST ids are often team abbreviations and may not appear in the player map.
+    for team in ESPN_TEAMS:
+        if team not in out:
+            out[team]={"id":team,"name":team,"team":team,"position":"DST","value":50.0,
+                       "prior_ppg":0,"board_rank":None,"injury_status":"","search_rank":None}
+    return out
+
+def top_for_position(player_ids,values,pos,count=1):
+    items=[values.get(str(pid)) for pid in player_ids]
+    items=[x for x in items if x and x.get("position")==pos]
+    items.sort(key=lambda x:x["value"],reverse=True)
+    return items[:max(1,count)]
+
+def position_slot_counts(roster_positions):
+    counts={p:0 for p in ("QB","RB","WR","TE","K","DST")}
+    for slot in roster_positions or []:
+        s=str(slot).upper()
+        if s in counts:counts[s]+=1
+    for p in counts:
+        if counts[p]==0 and p in ("QB","RB","WR","TE"):
+            counts[p]=1
+    return counts
+
+def roster_strength(roster,values,slot_counts):
+    ids=[str(x) for x in roster.get("players",[]) or []]
+    starters=[str(x) for x in roster.get("starters",[]) or [] if str(x)!="0"]
+    if starters:
+        starter_vals=[values[x]["value"] for x in starters if x in values]
+    else:
+        starter_vals=[]
+        for pos,count in slot_counts.items():
+            starter_vals += [x["value"] for x in top_for_position(ids,values,pos,count)]
+    starter_avg=statistics.mean(starter_vals) if starter_vals else 0
+    bench=[x for x in ids if x not in starters and x in values]
+    bench_vals=sorted([values[x]["value"] for x in bench],reverse=True)[:5]
+    bench_avg=statistics.mean(bench_vals) if bench_vals else starter_avg
+    return round(starter_avg*.82+bench_avg*.18,2),round(starter_avg,2),round(bench_avg,2)
+
+def roster_team_name(roster,users):
+    owner=str(roster.get("owner_id") or "")
+    u=next((x for x in users if str(x.get("user_id"))==owner),{})
+    return ((u.get("metadata") or {}).get("team_name") or u.get("display_name") or u.get("username") or f"Team {roster.get('roster_id')}")
+
+def league_team_analysis(league_id,username):
+    user=http_json(f"https://api.sleeper.app/v1/user/{requests.utils.quote(username)}")
+    uid=str(user.get("user_id") or "")
+    if not uid:raise ValueError("Sleeper user not found")
+
+    # These calls are independent and noticeably faster in parallel on Render.
+    urls={
+        "league":f"https://api.sleeper.app/v1/league/{league_id}",
+        "rosters":f"https://api.sleeper.app/v1/league/{league_id}/rosters",
+        "users":f"https://api.sleeper.app/v1/league/{league_id}/users",
+        "state":"https://api.sleeper.app/v1/state/nfl",
+    }
+    responses={}
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        fut={ex.submit(http_json,url):name for name,url in urls.items()}
+        for f in as_completed(fut):
+            responses[fut[f]]=f.result()
+    league=responses["league"]; rosters=responses["rosters"]; users=responses["users"]; state=responses["state"]
+    target=next(
+        (r for r in rosters
+         if str(r.get("owner_id"))==uid or uid in {str(x) for x in (r.get("co_owners") or [])}),
+        None
+    )
+    if not target:raise ValueError("No roster found for this user in that league")
+
+    scoring=league_scoring_mode(league)
+    values=league_value_map(scoring)
+    slots=position_slot_counts(league.get("roster_positions"))
+    strengths=[]
+    for r in rosters:
+        total,starter,bench=roster_strength(r,values,slots)
+        strengths.append({"roster_id":r.get("roster_id"),"total":total,"starter":starter,"bench":bench})
+    target_strength=next(x for x in strengths if x["roster_id"]==target.get("roster_id"))
+    sorted_strength=sorted(strengths,key=lambda x:x["total"],reverse=True)
+    league_rank=1+next(i for i,x in enumerate(sorted_strength) if x["roster_id"]==target.get("roster_id"))
+    pct=percentile_rank(target_strength["total"],[x["total"] for x in strengths])
+    grade_score=round(54+pct*.42,1)
+
+    # Position grades are league-relative using each team's top required players.
+    pos_grades={}
+    for pos,count in slots.items():
+        if count<=0:continue
+        all_scores=[]
+        by_roster={}
+        for r in rosters:
+            vals=top_for_position(r.get("players",[]) or [],values,pos,count)
+            score=statistics.mean([x["value"] for x in vals]) if vals else 0
+            by_roster[r.get("roster_id")]=score;all_scores.append(score)
+        mine=by_roster.get(target.get("roster_id"),0)
+        pp=percentile_rank(mine,all_scores)
+        score=round(52+pp*.44,1)
+        pos_grades[pos]={
+            "score":score,"grade":grade_letter(score),
+            "league_rank":1+sum(1 for x in all_scores if x>mine),
+            "league_size":len(all_scores),"strength":round(mine,1)
+        }
+
+    owned={str(pid) for r in rosters for pid in (r.get("players") or [])}
+    trend={str(x.get("player_id")):int(x.get("count") or 0) for x in sleeper_trending()}
+    available=[]
+    for pid,v in values.items():
+        if pid in owned:continue
+        if v["position"] not in ALL_POSITIONS:continue
+        if not v.get("team") and v["position"]!="DST":continue
+        boost=min(8,math.log10(1+trend.get(pid,0))*2.4) if trend.get(pid) else 0
+        item=dict(v);item["trend_adds"]=trend.get(pid,0)
+        weakness=pos_grades.get(v["position"],{}).get("score",75)
+        need_boost=max(0,(75-weakness)*.18)
+        item["pickup_score"]=round(min(100,v["value"]+boost+need_boost),1)
+        available.append(item)
+    available.sort(key=lambda x:x["pickup_score"],reverse=True)
+
+    my_ids=[str(x) for x in target.get("players",[]) or []]
+    starters={str(x) for x in target.get("starters",[]) or [] if str(x)!="0"}
+    bench_ids=[x for x in my_ids if x not in starters]
+    droppable=[dict(values[x]) for x in bench_ids if x in values]
+    droppable.sort(key=lambda x:x["value"])
+
+    pickups=[]
+    for p in available[:15]:
+        reason=[]
+        pg=pos_grades.get(p["position"])
+        if pg and pg["score"]<72:reason.append(f"{p['position']} is a roster weakness ({pg['grade']})")
+        if p.get("trend_adds"):reason.append(f"{p['trend_adds']} recent Sleeper adds")
+        if p.get("prior_ppg"):reason.append(f"{p['prior_ppg']} prior-year PPG")
+        if p.get("board_rank"):reason.append(f"{p['position']}#{p['board_rank']} on our board")
+        if not reason:reason.append("best available value in your free-agent pool")
+        q=dict(p);q["reason"]=" • ".join(reason)
+        pickups.append(q)
+
+    drops=[]
+    for p in droppable[:8]:
+        reason=[f"bench value score {p['value']}"]
+        if p.get("injury_status"):reason.append(p["injury_status"])
+        if p.get("prior_ppg",0)<5:reason.append("limited prior-year production")
+        q=dict(p);q["reason"]=" • ".join(reason)
+        drops.append(q)
+
+    swaps=[]
+    for add in pickups[:8]:
+        candidates=[d for d in drops if d["id"]!=add["id"]]
+        if not candidates:continue
+        # Prefer dropping same-position bench depth, otherwise weakest bench asset.
+        same=[d for d in candidates if d["position"]==add["position"]]
+        drop=(same or candidates)[0]
+        delta=round(add["pickup_score"]-drop["value"],1)
+        if delta<4:continue
+        swaps.append({
+            "add":add,"drop":drop,"delta":delta,
+            "reason":f"Adds {delta} points of model value; {add['position']} need and market momentum are factored in."
+        })
+        if len(swaps)>=6:break
+
+    # Roster diagnosis.
+    notes=[]
+    weak=sorted(pos_grades.items(),key=lambda kv:kv[1]["score"])
+    strong=sorted(pos_grades.items(),key=lambda kv:kv[1]["score"],reverse=True)
+    if strong:notes.append(f"Best unit: {strong[0][0]} ({strong[0][1]['grade']}, league rank {strong[0][1]['league_rank']}).")
+    if weak:notes.append(f"Priority weakness: {weak[0][0]} ({weak[0][1]['grade']}, league rank {weak[0][1]['league_rank']}/{weak[0][1]['league_size']}).")
+    injured=[values[x] for x in my_ids if x in values and values[x].get("injury_status")]
+    if injured:notes.append(f"{len(injured)} rostered player(s) currently carry a Sleeper injury designation.")
+    if target_strength["bench"]<target_strength["starter"]-12:notes.append("Starter quality is materially ahead of bench depth; prioritize high-upside depth rather than redundant floor.")
+    elif target_strength["bench"]>=target_strength["starter"]-5:notes.append("Bench depth is a relative strength; consider packaging depth in a trade for a stronger starter.")
+
+    # Matchup / opponent context if the league has a current matchup.
+    matchup=None
+    week=int(state.get("week") or state.get("display_week") or 1)
+    try:
+        matches=http_json(f"https://api.sleeper.app/v1/league/{league_id}/matchups/{week}")
+        mine=next((m for m in matches if m.get("roster_id")==target.get("roster_id")),None)
+        if mine and mine.get("matchup_id") is not None:
+            opp=next((m for m in matches if m.get("matchup_id")==mine.get("matchup_id") and m.get("roster_id")!=target.get("roster_id")),None)
+            opp_roster=next((r for r in rosters if opp and r.get("roster_id")==opp.get("roster_id")),None)
+            matchup={
+                "week":week,"my_points":mine.get("points"),"opponent_points":opp.get("points") if opp else None,
+                "opponent":roster_team_name(opp_roster,users) if opp_roster else None
+            }
+    except Exception:
+        matchup=None
+
+    # Recent transactions involving the user's roster.
+    moves=[]
+    try:
+        tx=http_json(f"https://api.sleeper.app/v1/league/{league_id}/transactions/{week}")
+        for t in tx:
+            if target.get("roster_id") not in (t.get("roster_ids") or []):continue
+            adds=[values.get(str(pid),{"name":str(pid)})["name"] for pid,rid in (t.get("adds") or {}).items() if rid==target.get("roster_id")]
+            dropsx=[values.get(str(pid),{"name":str(pid)})["name"] for pid,rid in (t.get("drops") or {}).items() if rid==target.get("roster_id")]
+            moves.append({"type":t.get("type"),"status":t.get("status"),"adds":adds,"drops":dropsx,"created":t.get("created")})
+        moves=sorted(moves,key=lambda x:x.get("created") or 0,reverse=True)[:5]
+    except Exception:
+        pass
+
+    def player_out(pid):
+        v=dict(values.get(str(pid),{"id":str(pid),"name":str(pid),"team":"","position":"","value":0,"prior_ppg":0,"injury_status":""}))
+        v["starter"]=str(pid) in starters
+        return v
+
+    starters_out=[player_out(x) for x in target.get("starters",[]) or [] if str(x)!="0"]
+    bench_out=[player_out(x) for x in my_ids if x not in starters]
+
+    return {
+        "provider":"Sleeper",
+        "user":{"username":user.get("username"),"display_name":user.get("display_name")},
+        "league":{
+            "league_id":league_id,"name":league.get("name"),"season":league.get("season"),
+            "status":league.get("status"),"teams":league.get("total_rosters"),
+            "scoring":scoring,"roster_positions":league.get("roster_positions") or []
+        },
+        "team":{
+            "name":roster_team_name(target,users),"roster_id":target.get("roster_id"),
+            "record":{"wins":(target.get("settings") or {}).get("wins",0),"losses":(target.get("settings") or {}).get("losses",0),"ties":(target.get("settings") or {}).get("ties",0)},
+            "waiver_position":(target.get("settings") or {}).get("waiver_position"),
+            "waiver_budget_used":(target.get("settings") or {}).get("waiver_budget_used"),
+            "grade":{"score":grade_score,"letter":grade_letter(grade_score),"league_rank":league_rank,"league_size":len(rosters)},
+            "position_grades":pos_grades,
+            "strength":{"overall":target_strength["total"],"starters":target_strength["starter"],"bench":target_strength["bench"]},
+            "starters":starters_out,"bench":bench_out
+        },
+        "matchup":matchup,
+        "diagnosis":notes,
+        "pickups":pickups[:10],
+        "drops":drops[:6],
+        "swaps":swaps,
+        "recent_moves":moves,
+        "methodology":"Roster grade is league-relative. Player values combine prior-season fantasy production, current draft-board rank, Sleeper market/search rank and current injury status. Pickup suggestions use the actual unrostered player pool in this Sleeper league."
+    }
+
 
 @app.route("/")
 def index():
@@ -1300,6 +1632,18 @@ def leagues():
     if not uid:return jsonify({"error":"Sleeper user not found"}),404
     ls=http_json(f"https://api.sleeper.app/v1/user/{uid}/leagues/nfl/{season}")
     return jsonify({"user":user,"leagues":ls})
+
+
+@app.get("/api/sleeper/team-analysis/<league_id>")
+def sleeper_team_analysis_api(league_id):
+    username=request.args.get("username","").strip()
+    if not username:return jsonify({"error":"username required"}),400
+    try:
+        return jsonify(league_team_analysis(league_id,username))
+    except ValueError as e:
+        return jsonify({"error":str(e)}),404
+    except Exception as e:
+        return jsonify({"error":"team_analysis_failed","message":str(e)}),500
 
 @app.get("/api/sleeper/roster/<league_id>")
 def roster(league_id):
