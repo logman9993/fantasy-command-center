@@ -1,4 +1,4 @@
-# Fantasy Command Center V8 — Deployment Edition
+# Fantasy Command Center V6.1 — Deployment Edition
 
 **Public deployment instructions:** see [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
@@ -311,3 +311,28 @@ Player value uses prior-season fantasy production, current Command Center board 
 - Sleeper: live now
 - Yahoo: official Fantasy Sports API is available through Yahoo OAuth and is the recommended future integration path
 - ESPN: future adapter should use a secure authenticated integration for private leagues; V8 does not request or store ESPN passwords
+
+
+## V8.2 — ESPN Private League Sync
+
+V8.2 adds a Chrome/Edge Manifest V3 extension for read-only private ESPN Fantasy
+Football sync.
+
+### Sync security
+The extension performs ESPN API requests inside the already-authenticated
+`fantasy.espn.com` team page. It does not request browser cookie permission and
+does not read or upload `espn_s2`, `SWID`, ESPN passwords, or Authorization
+headers.
+
+Only fantasy league data is submitted to `/api/espn/analyze`:
+- league/scoring settings
+- teams and rosters
+- current matchup information
+- up to 250 FREEAGENT / WAIVERS entries
+
+The backend normalizes the ESPN snapshot into the same League HQ result model used
+by Sleeper: league-relative roster grade, position grades, lineup/bench analysis,
+waiver targets, drop candidates and add/drop upgrade suggestions.
+
+V8.2 deliberately uses manual user-triggered refreshes rather than storing ESPN
+authentication on Render.

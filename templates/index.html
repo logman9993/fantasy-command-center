@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#17212b">
-<title>Fantasy Command Center V8</title>
+<title>Fantasy Command Center V8.2</title>
 <link rel="manifest" href="/static/manifest.json">
 <style>
 :root{
@@ -115,7 +115,12 @@ a{color:inherit}
    <div class="providerGrid">
     <div class="provider supported"><div class="providerState">Live now · read-only</div><h3>Sleeper</h3><p>Connect with username only. We read leagues, rosters, scoring settings, matchups and free agents. No password or write access.</p></div>
     <div class="provider"><div class="providerState" style="color:var(--gold)">Adapter planned</div><h3>Yahoo Fantasy</h3><p>Yahoo offers an official OAuth Fantasy API. A future adapter can use Yahoo authorization without collecting your Yahoo password.</p></div>
-    <div class="provider"><div class="providerState" style="color:var(--gold)">Adapter planned</div><h3>ESPN Fantasy</h3><p>League import is possible, but private ESPN leagues require a secure authenticated integration. We will not ask users to paste account passwords into this site.</p></div>
+    <div class="provider supported"><div class="providerState">Live · browser extension</div><h3>ESPN Fantasy</h3><p>Private-league sync uses your existing ESPN browser session. No ESPN password or cookie value is sent to Command Center.</p><button id="espnHelp" class="btn light small" type="button">How to sync ESPN</button></div>
+   </div>
+   <div id="espnHelpPanel" class="connectBox" style="display:none;border-left:4px solid var(--orange)">
+    <b>ESPN private league sync</b>
+    <div class="detail">1. Install the Command Center ESPN Sync extension from the V8.2 package.<br>2. Sign into ESPN normally and open your fantasy football <b>team page</b>.<br>3. Click the extension and press <b>Sync current ESPN team</b>.<br>4. Command Center will reopen here with your ESPN League HQ analysis.</div>
+    <div class="method"><b>Security:</b> the extension uses ESPN's already-authenticated page session. Command Center receives league JSON, not your ESPN password or cookie values.</div>
    </div>
    <div class="connectBox">
     <div class="connectRow"><input id="sleeperUser" class="input" placeholder="Sleeper username"><button id="findLeagues" class="btn orange">Find my leagues</button></div>
@@ -214,7 +219,7 @@ function rosterRows(items){return items.map(p=>`<div class="rosterPlayer"><div c
 function renderLeague(d){
  const t=d.team,l=d.league,g=t.grade,m=d.matchup;
  const pg=Object.entries(t.position_grades||{});
- document.getElementById("leagueAnalysis").innerHTML=`<div class="hqHero"><div><small>${esc(l.name)} · ${esc(l.scoring)} · ${l.teams} teams</small><h2>${esc(t.name)}</h2><div class="hqMeta"><span>${t.record.wins}-${t.record.losses}${t.record.ties?`-${t.record.ties}`:""} record</span><span>League rank ${g.league_rank}/${g.league_size}</span>${t.waiver_position!=null?`<span>Waiver priority ${t.waiver_position}</span>`:""}${t.waiver_budget_used!=null?`<span>FAAB used ${t.waiver_budget_used}</span>`:""}</div></div><div class="gradeBlock"><div class="gradeLetter" style="color:${gradeColor(g.letter)}">${esc(g.letter)}</div><span>${g.score}/100 roster grade</span></div></div>
+ document.getElementById("leagueAnalysis").innerHTML=`<div class="hqHero"><div><small>${esc(d.provider||"League")} · ${esc(l.name)} · ${esc(l.scoring)} · ${l.teams} teams</small><h2>${esc(t.name)}</h2><div class="hqMeta"><span>${t.record.wins}-${t.record.losses}${t.record.ties?`-${t.record.ties}`:""} record</span><span>League rank ${g.league_rank}/${g.league_size}</span>${t.waiver_position!=null?`<span>Waiver priority ${t.waiver_position}</span>`:""}${t.waiver_budget_used!=null?`<span>FAAB used ${t.waiver_budget_used}</span>`:""}</div></div><div class="gradeBlock"><div class="gradeLetter" style="color:${gradeColor(g.letter)}">${esc(g.letter)}</div><span>${g.score}/100 roster grade</span></div></div>
  <div class="hqGrid">
   <div>
    <div class="hqPanel"><h3>Position grades</h3><div class="posGrades">${pg.map(([pos,x])=>`<div class="posGrade"><span>${pos}</span><b style="color:${gradeColor(x.grade)}">${x.grade}</b><span>#${x.league_rank} of ${x.league_size}</span></div>`).join("")}</div></div>
@@ -229,7 +234,12 @@ function renderLeague(d){
  </div>`;
  document.getElementById("providerArea").style.display="none";
  document.getElementById("leagueLoading").style.display="none";
- localStorage.setItem("fcc_league",JSON.stringify({username:d.user.username,league_id:l.league_id}));
+ if(d.provider==="Sleeper" && d.user?.username){
+  localStorage.setItem("fcc_league",JSON.stringify({username:d.user.username,league_id:l.league_id}));
+ }
+ if(d.provider==="ESPN"){
+  localStorage.setItem("fcc_espn_last_sync",JSON.stringify({league_id:l.league_id,synced_at:d.synced_at||Date.now()}));
+ }
 }
 async function analyzeLeague(id,user){document.getElementById("leagueLoading").style.display="block";document.getElementById("leagueAnalysis").innerHTML="";try{const r=await fetch(`/api/sleeper/team-analysis/${encodeURIComponent(id)}?username=${encodeURIComponent(user)}`),d=await r.json();if(!r.ok)throw new Error(d.message||d.error||"analysis failed");renderLeague(d)}catch(e){document.getElementById("leagueLoading").style.display="none";document.getElementById("leagueAnalysis").innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 document.getElementById("findLeagues").addEventListener("click",async()=>{const user=document.getElementById("sleeperUser").value.trim();if(!user)return;document.getElementById("leagueChoices").innerHTML=`<div class="empty">Finding leagues…</div>`;try{const r=await fetch(`/api/sleeper/leagues?username=${encodeURIComponent(user)}&season=2026`),d=await r.json();if(d.error)throw new Error(d.error);document.getElementById("leagueChoices").innerHTML=(d.leagues||[]).map(l=>`<button class="leagueChoice" data-league="${esc(l.league_id)}"><b>${esc(l.name)}</b><span>${esc(l.status)} · ${l.total_rosters} teams · ${esc(l.season)}</span></button>`).join("")||`<div class="empty">No 2026 Sleeper leagues found.</div>`;document.querySelectorAll("[data-league]").forEach(b=>b.addEventListener("click",()=>analyzeLeague(b.dataset.league,user)))}catch(e){document.getElementById("leagueChoices").innerHTML=`<div class="empty">${esc(e.message)}</div>`}});
@@ -238,6 +248,25 @@ async function loadBoard(){
  const s=document.getElementById("scoring").value;document.getElementById("notice").textContent="Loading rankings and market data…";riskLoaded=false;teamsLoaded=false;
  try{const r=await fetch(`/api/dashboard?scoring=${s}`),d=await r.json();if(!r.ok)throw new Error(`HTTP ${r.status}`);board=d;renderBoard();document.getElementById("sleepersList").innerHTML=sleeperCards(d.sleepers);const counts=d.meta.counts||{},total=Object.values(counts).reduce((a,b)=>a+b,0),full=Object.values(counts).filter(x=>x>=25).length;document.getElementById("boardCount").textContent=total;document.getElementById("fullCount").textContent=`${full}/6`;document.getElementById("scoreMode").textContent=s;document.getElementById("watchCount").textContent=watch().length;document.getElementById("topStatus").textContent=`${full}/6 boards full`;document.getElementById("notice").textContent=`Board ready · ${total} ranked entries · deeper analysis loads only when requested.`}catch(e){document.getElementById("notice").textContent=`Dashboard failed: ${e.message}`}}
 document.getElementById("search").addEventListener("input",renderBoard);document.querySelectorAll("[data-pos]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-pos]").forEach(x=>x.classList.remove("active"));b.classList.add("active");activePos=b.dataset.pos;renderBoard()}));document.getElementById("refresh").addEventListener("click",loadBoard);document.getElementById("scoring").addEventListener("change",loadBoard);
+
+
+document.getElementById("espnHelp").addEventListener("click",()=>{
+ const p=document.getElementById("espnHelpPanel");
+ p.style.display=p.style.display==="none"?"block":"none";
+});
+window.addEventListener("message",event=>{
+ if(event.source!==window)return;
+ const msg=event.data||{};
+ if(msg.type!=="FCC_ESPN_ANALYSIS"||!msg.payload)return;
+ try{
+   switchSection("league");
+   document.getElementById("providerArea").style.display="block";
+   renderLeague(msg.payload);
+   document.getElementById("notice").textContent=`ESPN league synced successfully · ${msg.payload.league?.name||"League HQ ready"}`;
+ }catch(e){
+   document.getElementById("leagueAnalysis").innerHTML=`<div class="empty">ESPN sync arrived but could not render: ${esc(e.message)}</div>`;
+ }
+});
 
 try{const saved=JSON.parse(localStorage.getItem("fcc_league")||"null");if(saved?.username&&saved?.league_id){document.getElementById("sleeperUser").value=saved.username;analyzeLeague(saved.league_id,saved.username)}}catch{}
 saveWatch(watch());loadBoard();

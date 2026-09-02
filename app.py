@@ -1024,7 +1024,7 @@ def health():
     return jsonify({
         "status": "ok",
         "app": "Fantasy Command Center",
-        "version": "8.0-league-hq",
+        "version": "8.2-espn-private-sync",
         "season": SEASON,
         "time": int(time.time())
     })
@@ -1376,6 +1376,245 @@ def league_team_analysis(league_id,username):
     }
 
 
+
+ESPN_POSITIONS={1:"QB",2:"RB",3:"WR",4:"TE",5:"K",16:"DST"}
+ESPN_PRO_TEAMS={
+    1:"ATL",2:"BUF",3:"CHI",4:"CIN",5:"CLE",6:"DAL",7:"DEN",8:"DET",9:"GB",
+    10:"TEN",11:"IND",12:"KC",13:"LV",14:"LAR",15:"MIA",16:"MIN",17:"NE",
+    18:"NO",19:"NYG",20:"NYJ",21:"PHI",22:"ARI",23:"PIT",24:"LAC",25:"SF",
+    26:"SEA",27:"TB",28:"WSH",29:"CAR",30:"JAX",33:"BAL",34:"HOU"
+}
+
+def espn_scoring_mode(league):
+    items=(((league.get("settings") or {}).get("scoringSettings") or {}).get("scoringItems") or [])
+    rec=0
+    for item in items:
+        try:
+            stat_id=int(item.get("statId"))
+            points=float(item.get("points") or 0)
+        except Exception:
+            continue
+        if stat_id in (41,53):
+            rec=max(rec,points)
+    if rec>=0.75:return "PPR"
+    if rec>=0.25:return "HALF"
+    return "STD"
+
+def espn_team_name(team,members):
+    location=(team.get("location") or "").strip()
+    nickname=(team.get("nickname") or "").strip()
+    explicit=(team.get("name") or "").strip()
+    if explicit:return explicit
+    if location or nickname:return (location+" "+nickname).strip()
+    owners={str(x) for x in (team.get("owners") or [])}
+    member=next((m for m in members if str(m.get("id")) in owners),{})
+    return member.get("displayName") or f"Team {team.get('id')}"
+
+def espn_player_obj(entry):
+    if not isinstance(entry,dict):return {}
+    pool=entry.get("playerPoolEntry") or entry
+    player=pool.get("player") or entry.get("player") or {}
+    pid=entry.get("playerId") or pool.get("id") or player.get("id") or entry.get("id")
+    return {"entry":entry,"pool":pool,"player":player,"id":str(pid) if pid is not None else ""}
+
+def espn_value_indexes(scoring):
+    sleeper_values=league_value_map(scoring)
+    by_name={norm_name(v.get("name")):dict(v) for v in sleeper_values.values() if v.get("name")}
+    trending_by_name={}
+    sp=sleeper_players()
+    for tr in sleeper_trending():
+        pid=str(tr.get("player_id"))
+        p=sp.get(pid,{})
+        n=norm_name(player_name(p))
+        if n:trending_by_name[n]=int(tr.get("count") or 0)
+    return by_name,trending_by_name
+
+def espn_normalize_player(entry,by_name,trending_by_name):
+    obj=espn_player_obj(entry);p=obj["player"];pid=obj["id"]
+    name=(p.get("fullName") or " ".join(x for x in [p.get("firstName"),p.get("lastName")] if x) or str(pid)).strip()
+    n=norm_name(name)
+    base=dict(by_name.get(n,{}) or {})
+    try:position_id=int(p.get("defaultPositionId"))
+    except Exception:position_id=0
+    pos=base.get("position") or ESPN_POSITIONS.get(position_id,"")
+    try:pro_team=int(p.get("proTeamId"))
+    except Exception:pro_team=0
+    team=base.get("team") or ESPN_PRO_TEAMS.get(pro_team,"")
+    injury=p.get("injuryStatus") or base.get("injury_status") or ""
+    ownership=p.get("ownership") or {}
+    try:owned=float(ownership.get("percentOwned") or 0)
+    except Exception:owned=0
+    value=base.get("value")
+    if value is None:
+        value=max(18,min(82,24+owned*.58))
+        if str(injury).upper() in ("OUT","INJURY_RESERVE","IR"):
+            value-=10
+    return {
+        "id":pid,"name":name,"team":team,"position":pos,
+        "value":round(float(value),1),
+        "prior_ppg":base.get("prior_ppg",0),
+        "board_rank":base.get("board_rank"),
+        "injury_status":injury,
+        "percent_owned":round(owned,1),
+        "trend_adds":trending_by_name.get(n,0)
+    }
+
+def espn_roster_entries(team):
+    return (((team.get("roster") or {}).get("entries")) or [])
+
+def espn_slot_counts(league):
+    counts={p:0 for p in ("QB","RB","WR","TE","K","DST")}
+    raw=((((league.get("settings") or {}).get("rosterSettings") or {}).get("lineupSlotCounts")) or {})
+    slot_to_pos={0:"QB",2:"RB",4:"WR",6:"TE",16:"DST",17:"K"}
+    for slot,count in raw.items():
+        try:s=int(slot);c=int(count or 0)
+        except Exception:continue
+        pos=slot_to_pos.get(s)
+        if pos:counts[pos]+=c
+    for p in ("QB","RB","WR","TE"):
+        if counts[p]<=0:counts[p]=1
+    return counts
+
+def espn_roster_strength(players,slot_counts):
+    by_pos={p:[] for p in slot_counts}
+    for x in players:
+        if x.get("position") in by_pos:
+            by_pos[x["position"]].append(x)
+    starters=[];chosen=set()
+    for pos,count in slot_counts.items():
+        arr=sorted(by_pos.get(pos,[]),key=lambda x:x.get("value",0),reverse=True)
+        for x in arr[:count]:
+            starters.append(x);chosen.add(x["id"])
+    bench=[x for x in players if x["id"] not in chosen]
+    starter_vals=[x["value"] for x in starters]
+    bench_vals=sorted([x["value"] for x in bench],reverse=True)[:5]
+    starter_avg=statistics.mean(starter_vals) if starter_vals else 0
+    bench_avg=statistics.mean(bench_vals) if bench_vals else starter_avg
+    return round(starter_avg*.82+bench_avg*.18,2),round(starter_avg,2),round(bench_avg,2),starters,bench
+
+def espn_analyze_snapshot(snapshot):
+    league=snapshot.get("league") or {}
+    free_entries=snapshot.get("freeAgents") or []
+    members=league.get("members") or []
+    teams=league.get("teams") or []
+    if not teams:raise ValueError("ESPN sync returned no fantasy teams")
+    try:my_team_id=int(snapshot.get("teamId"))
+    except Exception:raise ValueError("Open your ESPN team page so the extension can identify teamId")
+    my_team=next((t for t in teams if int(t.get("id") or -1)==my_team_id),None)
+    if not my_team:raise ValueError("Could not match the ESPN teamId to this league")
+
+    scoring=espn_scoring_mode(league)
+    by_name,trending_by_name=espn_value_indexes(scoring)
+    slots=espn_slot_counts(league)
+
+    normalized={};strengths=[]
+    for team in teams:
+        ps=[espn_normalize_player(e,by_name,trending_by_name) for e in espn_roster_entries(team)]
+        ps=[x for x in ps if x.get("position") in ALL_POSITIONS]
+        total,starter,bench,starters,bench_players=espn_roster_strength(ps,slots)
+        tid=int(team.get("id"))
+        normalized[tid]={"players":ps,"starters":starters,"bench_players":bench_players,"total":total,"starter":starter,"bench":bench}
+        strengths.append({"team_id":tid,"total":total,"starter":starter,"bench":bench})
+
+    mine=normalized[my_team_id]
+    sorted_strength=sorted(strengths,key=lambda x:x["total"],reverse=True)
+    league_rank=1+next(i for i,x in enumerate(sorted_strength) if x["team_id"]==my_team_id)
+    pct=percentile_rank(mine["total"],[x["total"] for x in strengths])
+    grade_score=round(54+pct*.42,1)
+
+    pos_grades={}
+    for pos,count in slots.items():
+        if count<=0:continue
+        scores={}
+        for tid,data in normalized.items():
+            vals=sorted([x["value"] for x in data["players"] if x["position"]==pos],reverse=True)[:count]
+            scores[tid]=statistics.mean(vals) if vals else 0
+        my_score=scores.get(my_team_id,0)
+        pp=percentile_rank(my_score,list(scores.values()))
+        score=round(52+pp*.44,1)
+        pos_grades[pos]={"score":score,"grade":grade_letter(score),"league_rank":1+sum(1 for x in scores.values() if x>my_score),"league_size":len(scores),"strength":round(my_score,1)}
+
+    free_agents=[]
+    for e in free_entries:
+        x=espn_normalize_player(e,by_name,trending_by_name)
+        if x.get("position") not in ALL_POSITIONS:continue
+        weakness=pos_grades.get(x["position"],{}).get("score",75)
+        trend_boost=min(8,math.log10(1+x.get("trend_adds",0))*2.4) if x.get("trend_adds") else 0
+        own_boost=min(5,(x.get("percent_owned") or 0)/20)
+        need_boost=max(0,(75-weakness)*.18)
+        x["pickup_score"]=round(min(100,x["value"]+trend_boost+own_boost+need_boost),1)
+        reason=[]
+        pg=pos_grades.get(x["position"])
+        if pg and pg["score"]<72:reason.append(f"{x['position']} is a roster weakness ({pg['grade']})")
+        if x.get("trend_adds"):reason.append(f"{x['trend_adds']} recent Sleeper adds")
+        if x.get("percent_owned"):reason.append(f"{x['percent_owned']}% ESPN rostered")
+        if x.get("prior_ppg"):reason.append(f"{x['prior_ppg']} prior-year PPG")
+        if x.get("board_rank"):reason.append(f"{x['position']}#{x['board_rank']} Command Center board")
+        if not reason:reason.append("best available model value in the synced ESPN pool")
+        x["reason"]=" • ".join(reason)
+        free_agents.append(x)
+    free_agents.sort(key=lambda x:x["pickup_score"],reverse=True)
+
+    starters_ids={x["id"] for x in mine["starters"]}
+    droppable=[dict(x) for x in mine["players"] if x["id"] not in starters_ids]
+    droppable.sort(key=lambda x:x["value"])
+    drops=[]
+    for p in droppable[:8]:
+        q=dict(p);reason=[f"bench value {p['value']}"]
+        if p.get("injury_status"):reason.append(str(p["injury_status"]))
+        if p.get("prior_ppg",0)<5:reason.append("limited prior-year production")
+        q["reason"]=" • ".join(reason);drops.append(q)
+
+    swaps=[]
+    for add in free_agents[:10]:
+        if not drops:break
+        same=[d for d in drops if d["position"]==add["position"]]
+        drop=(same or drops)[0]
+        delta=round(add["pickup_score"]-drop["value"],1)
+        if delta<4:continue
+        swaps.append({"add":add,"drop":drop,"delta":delta,"reason":f"{add['position']} need, ESPN availability and current market value produce a {delta}-point modeled upgrade."})
+        if len(swaps)>=6:break
+
+    weak=sorted(pos_grades.items(),key=lambda kv:kv[1]["score"])
+    strong=sorted(pos_grades.items(),key=lambda kv:kv[1]["score"],reverse=True)
+    notes=[]
+    if strong:notes.append(f"Best unit: {strong[0][0]} ({strong[0][1]['grade']}, league rank {strong[0][1]['league_rank']}).")
+    if weak:notes.append(f"Priority weakness: {weak[0][0]} ({weak[0][1]['grade']}, league rank {weak[0][1]['league_rank']}/{weak[0][1]['league_size']}).")
+    injured=[x for x in mine["players"] if x.get("injury_status") and str(x.get("injury_status")).upper()!="ACTIVE"]
+    if injured:notes.append(f"{len(injured)} rostered player(s) currently carry an ESPN injury designation.")
+    if mine["bench"]<mine["starter"]-12:notes.append("Starter quality is materially ahead of bench depth; prioritize high-upside depth.")
+    elif mine["bench"]>=mine["starter"]-5:notes.append("Bench depth is strong enough to consider a 2-for-1 consolidation trade.")
+
+    record=my_team.get("record") or {}
+    overall=record.get("overall") or record
+    transaction_counter=my_team.get("transactionCounter") or {}
+    scoring_period=league.get("scoringPeriodId") or ((league.get("status") or {}).get("currentMatchupPeriod"))
+    matchup=None
+    try:sp=int(scoring_period or 0)
+    except:sp=0
+    for m in league.get("schedule") or []:
+        if int(m.get("matchupPeriodId") or -1)!=sp:continue
+        home=m.get("home") or {};away=m.get("away") or {}
+        if int(home.get("teamId") or -1)==my_team_id or int(away.get("teamId") or -1)==my_team_id:
+            mine_side=home if int(home.get("teamId") or -1)==my_team_id else away
+            opp_side=away if mine_side is home else home
+            opp_id=int(opp_side.get("teamId") or -1)
+            opp_team=next((t for t in teams if int(t.get("id") or -1)==opp_id),None)
+            matchup={"week":sp,"my_points":mine_side.get("totalPoints"),"opponent_points":opp_side.get("totalPoints"),"opponent":espn_team_name(opp_team or {},members)}
+            break
+
+    def out_player(x):
+        q=dict(x);q["starter"]=x["id"] in starters_ids;return q
+
+    return {
+        "provider":"ESPN","synced_at":snapshot.get("syncedAt"),
+        "league":{"league_id":str(snapshot.get("leagueId") or league.get("id") or ""),"name":((league.get("settings") or {}).get("name") or league.get("name") or "ESPN League"),"season":snapshot.get("season") or SEASON,"status":((league.get("status") or {}).get("type") or "synced"),"teams":len(teams),"scoring":scoring,"roster_positions":[k for k,v in slots.items() for _ in range(max(0,v))]},
+        "team":{"name":espn_team_name(my_team,members),"roster_id":my_team_id,"record":{"wins":overall.get("wins",0),"losses":overall.get("losses",0),"ties":overall.get("ties",0)},"waiver_position":my_team.get("waiverRank"),"waiver_budget_used":transaction_counter.get("acquisitionBudgetSpent"),"grade":{"score":grade_score,"letter":grade_letter(grade_score),"league_rank":league_rank,"league_size":len(teams)},"position_grades":pos_grades,"strength":{"overall":mine["total"],"starters":mine["starter"],"bench":mine["bench"]},"starters":[out_player(x) for x in mine["starters"]],"bench":[out_player(x) for x in mine["bench_players"]]},
+        "matchup":matchup,"diagnosis":notes,"pickups":free_agents[:10],"drops":drops[:6],"swaps":swaps,"recent_moves":[],
+        "methodology":"ESPN private sync is analyzed without storing ESPN authentication cookies. Roster grade is league-relative. Player values combine prior-season production, Command Center board rank, ESPN ownership, Sleeper market movement and injury status. Pickup suggestions come from the ESPN FREEAGENT/WAIVERS pool captured during this sync."
+    }
+
+
 @app.route("/")
 def index():
     return render_template("index.html",live=bool(FANTASYPROS_KEY),season=SEASON)
@@ -1633,6 +1872,23 @@ def leagues():
     ls=http_json(f"https://api.sleeper.app/v1/user/{uid}/leagues/nfl/{season}")
     return jsonify({"user":user,"leagues":ls})
 
+
+
+@app.post("/api/espn/analyze")
+def espn_analyze_api():
+    snapshot=request.get_json(silent=True) or {}
+    if str(snapshot.get("provider") or "").upper()!="ESPN":
+        return jsonify({"error":"invalid_provider","message":"Expected ESPN sync payload"}),400
+    forbidden=("espn_s2","swid","password","cookie","authorization")
+    flat_keys=" ".join(str(k).lower() for k in snapshot.keys())
+    if any(x in flat_keys for x in forbidden):
+        return jsonify({"error":"credentials_not_accepted","message":"Do not send ESPN cookies, passwords, or authorization headers."}),400
+    try:
+        return jsonify(espn_analyze_snapshot(snapshot))
+    except ValueError as e:
+        return jsonify({"error":"espn_sync_invalid","message":str(e)}),400
+    except Exception as e:
+        return jsonify({"error":"espn_analysis_failed","message":str(e)}),500
 
 @app.get("/api/sleeper/team-analysis/<league_id>")
 def sleeper_team_analysis_api(league_id):
