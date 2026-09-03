@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#17212b">
-<title>Fantasy Command Center V8.4</title>
+<title>Fantasy Command Center V8.5</title>
 <link rel="manifest" href="/static/manifest.json">
 <style>
 :root{
@@ -160,7 +160,7 @@ a{color:inherit}
  </section>
 
  <section id="risk" class="section">
-  <div class="sectionHead"><div><div class="kicker">Availability</div><h2>Injury risk</h2><p>Draft-board players only, with recent documented injury episodes where the historical feed has coverage.</p></div></div>
+  <div class="sectionHead"><div><div class="kicker">Availability</div><h2>Injury risk</h2><p>Current injury status loads first. Detailed missed-game reconstruction, diagnosis context and return reporting load per player on demand.</p></div></div>
   <div id="riskList" class="cards2"><div class="empty">Open this section to load injury data.</div></div>
  </section>
 </main>
@@ -257,14 +257,108 @@ function sleeperCards(items){
    </article>`;
  }).join("");
 }
-function riskCards(items){
- if(!items?.length)return `<div class="empty">No meaningful draft-board risks returned.</div>`;
- return items.map((p,i)=>{
-   const latest=p.latest_news?.title?`<a class="articleLink" href="${esc(p.latest_news.url||"#")}" target="_blank" rel="noopener noreferrer"><b>Latest injury reporting · ${esc(p.latest_news.source||"News")}</b><br>${esc(p.latest_news.title)}${p.latest_news.summary?`<br><span style="color:var(--muted)">${esc(p.latest_news.summary)}</span>`:""}</a>`:"";
-   const episodes=(p.recent_injuries||[]).map(x=>{const missed=x.games_missed_estimate==null?"Not verified":`${x.games_missed_estimate} estimated`;return `<div class="injuryEpisode"><h4>${esc(x.season)} · ${esc(x.diagnosis||x.injury)} · ${esc(x.week_range)}</h4><div class="injuryGrid"><div class="injuryDatum"><span>Report window</span><b>${x.report_duration_weeks} week(s)</b></div><div class="injuryDatum"><span>Estimated games missed</span><b>${missed}</b></div><div class="injuryDatum"><span>Game designation</span><b>${esc(x.report_statuses||"Not recorded")}</b></div><div class="injuryDatum"><span>Practice status</span><b>${esc(x.practice_statuses||"Not recorded")}</b></div></div><div class="detail"><label>What the injury is</label>${esc(x.description||"")}</div><div class="detail"><label>How long / return evidence</label>${esc(x.return_evidence||"")}</div></div>`}).join("");
-   return `<article class="feature"><div class="featureTop"><div><strong>#${i+1} ${esc(p.name)}</strong><div class="psub">${esc(p.team)} · ${esc(p.position)}${p.current_status?` · ${esc(p.current_status)}`:""}</div></div><span class="tag">${p.risk}% risk</span></div><div class="bar risk"><span style="width:${Math.max(4,p.risk)}%"></span></div><div class="detail"><label>Current diagnosis / label</label><b>${esc(p.current_diagnosis||"No specific current diagnosis identified")}</b></div>${p.current_description?`<div class="detail"><label>What that means</label>${esc(p.current_description)}</div>`:""}<div class="outlookBox"><b>Return outlook</b><br>${esc(p.return_outlook||"No reliable current timetable found.")}</div><div class="analystTake"><b>Fantasy impact</b><br>${esc(p.fantasy_impact||"")}</div>${latest}${episodes}<div class="read"><b>Risk read:</b> ${esc(p.analysis||p.reason||"")}</div><div class="methodNote">${esc(p.missed_games_method||"")}</div></article>`;
- }).join("");
+function injuryBasicEpisodes(items){
+ return (items||[]).map(x=>`<div class="injuryEpisode">
+   <h4>${esc(x.season)} · ${esc(x.diagnosis||x.injury)} · ${esc(x.week_range)}</h4>
+   <div class="injuryGrid">
+     <div class="injuryDatum"><span>Report window</span><b>${x.report_duration_weeks} week(s)</b></div>
+     <div class="injuryDatum"><span>Out designation</span><b>${x.out_designated_weeks||0} report week(s)</b></div>
+     <div class="injuryDatum"><span>Game status</span><b>${esc(x.report_statuses||"Not recorded")}</b></div>
+     <div class="injuryDatum"><span>Practice status</span><b>${esc(x.practice_statuses||"Not recorded")}</b></div>
+   </div>
+   <div class="detail"><label>What the injury is</label>${esc(x.description||"")}</div>
+ </div>`).join("");
 }
+
+function injuryDetailHTML(d){
+ const latest=d.latest_news?.title
+   ? `<a class="articleLink" href="${esc(d.latest_news.url||"#")}" target="_blank" rel="noopener noreferrer"><b>Latest injury reporting · ${esc(d.latest_news.source||"News")}</b><br>${esc(d.latest_news.title)}${d.latest_news.summary?`<br><span style="color:var(--muted)">${esc(d.latest_news.summary)}</span>`:""}</a>`
+   : `<div class="contextBox"><strong>Current reporting</strong>No recent player-specific injury report matched strongly enough to use for a timetable.</div>`;
+
+ const episodes=(d.recent_injuries||[]).map(x=>{
+   const missed=x.games_missed_estimate==null?"Not verified":`${x.games_missed_estimate} estimated`;
+   return `<div class="injuryEpisode">
+     <h4>${esc(x.season)} · ${esc(x.diagnosis||x.injury)} · ${esc(x.week_range)}</h4>
+     <div class="injuryGrid">
+       <div class="injuryDatum"><span>Report window</span><b>${x.report_duration_weeks} week(s)</b></div>
+       <div class="injuryDatum"><span>Estimated games missed</span><b>${missed}</b></div>
+       <div class="injuryDatum"><span>Game designation</span><b>${esc(x.report_statuses||"Not recorded")}</b></div>
+       <div class="injuryDatum"><span>Practice status</span><b>${esc(x.practice_statuses||"Not recorded")}</b></div>
+     </div>
+     <div class="detail"><label>What the injury is</label>${esc(x.description||"")}</div>
+     <div class="detail"><label>Return evidence</label>${esc(x.return_evidence||"")}</div>
+   </div>`;
+ }).join("");
+
+ return `<div class="analysisInner">
+   <div class="detail"><label>Current diagnosis / label</label><b>${esc(d.current_diagnosis||"No specific diagnosis identified")}</b></div>
+   ${d.current_description?`<div class="detail"><label>What that means</label>${esc(d.current_description)}</div>`:""}
+   <div class="outlookBox"><b>Return outlook</b><br>${esc(d.return_outlook||"No reliable timetable found.")}</div>
+   <div class="analystTake"><b>Fantasy impact</b><br>${esc(d.fantasy_impact||"")}</div>
+   ${latest}
+   ${episodes}
+   <div class="read"><b>Risk read:</b> ${esc(d.analysis||"")}</div>
+   <div class="methodNote">${esc(d.missed_games_method||"")}</div>
+ </div>`;
+}
+
+function riskCards(items){
+ if(!items?.length)return `<div class="empty">No injury-board data returned. Current player rankings are still available.</div>`;
+
+ return items.map((p,i)=>`<article class="feature">
+   <div class="featureTop">
+     <div><strong>#${i+1} ${esc(p.name)}</strong><div class="psub">${esc(p.team)} · ${esc(p.position)}${p.current_status?` · ${esc(p.current_status)}`:""}</div></div>
+     <span class="tag">${p.risk}% risk</span>
+   </div>
+   <div class="bar risk"><span style="width:${Math.max(4,p.risk)}%"></span></div>
+
+   <div class="detail"><label>Current label</label><b>${esc(p.current_diagnosis||"No current specific diagnosis identified")}</b></div>
+   ${p.current_status
+     ? `<div class="outlookBox"><b>Current availability</b><br>${esc(p.return_outlook||"")}</div>`
+     : `<div class="contextBox"><strong>Current availability</strong>No active Sleeper injury designation. The score below is mainly historical availability risk.</div>`}
+
+   ${injuryBasicEpisodes(p.recent_injuries)}
+
+   <div class="methodNote">The quick board intentionally avoids downloading weekly participation and player-specific news for all 25 players at once.</div>
+   <button class="btn light small injuryDetailBtn" data-injury-name="${esc(p.name)}" style="margin-top:9px">Load full injury analysis</button>
+   <div id="injury-detail-${key(p.name)}" class="analysis" data-loaded="0"></div>
+ </article>`).join("");
+}
+
+async function loadInjuryDetail(name,button){
+ const panel=document.getElementById(`injury-detail-${key(name)}`);
+ if(!panel)return;
+
+ if(panel.dataset.loaded==="1"){
+   panel.classList.toggle("open");
+   button.textContent=panel.classList.contains("open")?"Hide full analysis":"Show full analysis";
+   return;
+ }
+
+ button.disabled=true;
+ button.textContent="Loading analysis…";
+ panel.classList.add("open");
+ panel.innerHTML=`<div class="analysisInner">Reconstructing missed games and checking current reporting for ${esc(name)}…</div>`;
+
+ try{
+   const d=await apiJSON(`/api/injury-detail?name=${encodeURIComponent(name)}`,{timeout:90000,retries:1});
+   panel.innerHTML=injuryDetailHTML(d);
+   panel.dataset.loaded="1";
+   button.textContent="Hide full analysis";
+ }catch(e){
+   panel.innerHTML=`<div class="analysisInner"><div class="empty">Full analysis failed: ${esc(e.message)}</div></div>`;
+   button.textContent="Retry full analysis";
+ }finally{
+   button.disabled=false;
+ }
+}
+
+function bindInjuryDetailButtons(){
+ document.querySelectorAll(".injuryDetailBtn").forEach(btn=>{
+   btn.addEventListener("click",()=>loadInjuryDetail(btn.dataset.injuryName,btn));
+ });
+}
+
 async function loadSleeperRadar(){
  if(sleeperLoaded)return;
  const el=document.getElementById("sleepersList");
@@ -280,7 +374,20 @@ async function loadNews(force=false){if(newsLoaded&&!force){renderNews();return}
 document.querySelectorAll("[data-source]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-source]").forEach(x=>x.classList.remove("active"));b.classList.add("active");newsSource=b.dataset.source;renderNews()}));document.getElementById("newsRefresh").addEventListener("click",()=>loadNews(true));
 
 async function loadTeams(){if(teamsLoaded)return;document.getElementById("defenses").innerHTML=`<div class="empty">Loading defensive metrics…</div>`;document.getElementById("offenses").innerHTML=`<div class="empty">Loading offensive metrics…</div>`;try{const d=await apiJSON("/api/team-power",{timeout:110000,retries:1});document.getElementById("defenses").innerHTML=teamCards(d.defenses);document.getElementById("offenses").innerHTML=teamCards(d.offenses);teamsLoaded=true;if(d.degraded)document.getElementById("notice").classList.add("serverWarn")}catch(e){document.getElementById("defenses").innerHTML=`<div class="empty">Team data failed: ${esc(e.message)}</div>`;document.getElementById("offenses").innerHTML=`<div class="empty">Team data failed: ${esc(e.message)}</div>`}}
-async function loadRisk(){if(riskLoaded)return;document.getElementById("riskList").innerHTML=`<div class="empty">Reconstructing injury timelines, missed-game evidence and current return reporting…</div>`;try{const sc=document.getElementById("scoring").value;const d=await apiJSON(`/api/injury-risk?scoring=${encodeURIComponent(sc)}`,{timeout:150000,retries:1});document.getElementById("riskList").innerHTML=riskCards(d.items);riskLoaded=true}catch(e){document.getElementById("riskList").innerHTML=`<div class="empty">Injury analysis failed: ${esc(e.message)}</div>`}}
+async function loadRisk(){
+ if(riskLoaded)return;
+ const el=document.getElementById("riskList");
+ el.innerHTML=`<div class="empty">Loading current injury status and historical report episodes…</div>`;
+ try{
+   const sc=document.getElementById("scoring").value;
+   const d=await apiJSON(`/api/injury-risk?scoring=${encodeURIComponent(sc)}`,{timeout:60000,retries:1});
+   el.innerHTML=riskCards(d.items);
+   bindInjuryDetailButtons();
+   riskLoaded=true;
+ }catch(e){
+   el.innerHTML=`<div class="empty">Injury board failed: ${esc(e.message)}</div>`;
+ }
+}
 
 function gradeColor(g){if(g.startsWith("A"))return "var(--green)";if(g.startsWith("B"))return "var(--blue)";if(g.startsWith("C"))return "var(--gold)";return "var(--red)"}
 function rosterRows(items){return items.map(p=>`<div class="rosterPlayer"><div class="posSquare" style="background:${posColor[p.position]||"var(--ink)"}">${esc(p.position||"—")}</div><div><b>${esc(p.name)}</b><small>${esc(p.team||"")} ${p.injury_status?`· ${esc(p.injury_status)}`:""}${p.prior_ppg?` · ${p.prior_ppg} PPG`:""}</small></div><div class="valueScore">${p.value}</div></div>`).join("")}

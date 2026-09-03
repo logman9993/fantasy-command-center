@@ -405,3 +405,39 @@ The old "0 weeks Out" display has been removed.
 - Adds plain-language current injury description.
 - Adds explicit fantasy impact opinion alongside the return outlook.
 - Keeps historical report-window and estimated missed-game evidence separate from current injury reporting.
+
+
+## V8.5 — Progressive Injury Engine
+
+The V8.4 Injury endpoint could overload a Render free worker because one request
+attempted to load multiple seasons of weekly player data, team data and up to
+25 player-specific news searches.
+
+V8.5 splits that workload:
+
+### `/api/injury-risk`
+Fast board-level response:
+- current Sleeper injury designation
+- practice participation
+- injury start date
+- last two nflverse injury-report episodes
+- report duration
+- Out-designated report weeks
+- game/practice designation history
+- lightweight risk score
+
+It does not load nflverse weekly player statistics and does not perform 25 news
+searches.
+
+### `/api/injury-detail?name=...`
+Loaded only when a viewer requests one player's full analysis:
+- estimated games missed
+- bye-week-aware participation reconstruction
+- return-to-participation evidence
+- current player-specific injury reporting
+- diagnosis context
+- return outlook
+- fantasy impact analysis
+
+Per-player detail is cached for 30 minutes and can use a last-good cache for
+24 hours if an upstream provider temporarily fails.

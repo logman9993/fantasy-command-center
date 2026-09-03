@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Fantasy Command Center \u2014 ESPN Sync",
+  "version": "0.2.4",
+  "description": "Read-only private ESPN Fantasy Football league sync for Fantasy Command Center.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://lm-api-reads.fantasy.espn.com/*",
+    "https://fantasy-command-center.onrender.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Sync ESPN to Command Center",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://fantasy-command-center.onrender.com/*"
+      ],
+      "js": [
+        "command-center-bridge.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

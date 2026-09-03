@@ -895,7 +895,11 @@ def injury_history_index():
     return index
 
 @lru_cache(maxsize=256)
-def injury_episodes_cached(name):
+def injury_episodes_basic_cached(name):
+    """
+    Lightweight historical reconstruction from injury-report rows only.
+    No weekly player-stat files and no player-specific news are loaded here.
+    """
     rows=list(injury_history_index().get(norm_name(name),[]))
     eps=[]
     for r in rows:
@@ -910,25 +914,31 @@ def injury_episodes_cached(name):
             ep["weeks_reported"]+=1
             if r["report_status"]:ep["report_statuses"].add(r["report_status"])
             if r["practice_status"]:ep["practice_statuses"].add(r["practice_status"])
+            if str(r["report_status"]).strip().lower()=="out":
+                ep["out_designated_weeks"]+=1
         else:
             eps.append({
                 "season":r["season"],"first_week":r["week"],"last_week":r["week"],
                 "injury":r["injury"],"team":r.get("team") or "","weeks_reported":1,
+                "out_designated_weeks":1 if str(r["report_status"]).strip().lower()=="out" else 0,
                 "report_statuses":set([r["report_status"]]) if r["report_status"] else set(),
                 "practice_statuses":set([r["practice_status"]]) if r["practice_status"] else set()
             })
+
     out=[]
     for ep in reversed(eps[-2:]):
         diagnosis,desc=injury_description(ep["injury"])
-        part=historical_participation(name,ep["season"],ep["first_week"],ep["last_week"],ep.get("team") or "")
         out.append({
-            "season":ep["season"],"team":ep.get("team") or "","injury":ep["injury"],"diagnosis":diagnosis,
+            "season":ep["season"],
+            "team":ep.get("team") or "",
+            "injury":ep["injury"],
+            "diagnosis":diagnosis,
             "description":desc,
+            "first_week":ep["first_week"],
+            "last_week":ep["last_week"],
             "weeks_reported":ep["weeks_reported"],
             "report_duration_weeks":max(1,ep["last_week"]-ep["first_week"]+1),
-            "games_missed_estimate":part["games_missed_estimate"],
-            "return_week":part["return_week"],
-            "return_evidence":part["participation_note"],
+            "out_designated_weeks":ep["out_designated_weeks"],
             "week_range":f"Wk {ep['first_week']}" if ep["first_week"]==ep["last_week"] else f"Wks {ep['first_week']}-{ep['last_week']}",
             "report_statuses":", ".join(sorted(ep["report_statuses"])),
             "practice_statuses":", ".join(sorted(ep["practice_statuses"]))
@@ -943,6 +953,7 @@ def current_injury_outlook(player,news):
     timeline=extract_timeline_signal(blob)
     specific=extract_specific_injury(blob,player.get("injury_body_part") or "")
     diagnosis,description=injury_description(specific)
+
     if timeline:
         outlook=timeline
     elif status.lower() in ("ir","injured reserve","injury_reserve"):
@@ -957,8 +968,11 @@ def current_injury_outlook(player,news):
         outlook=f"Current Sleeper designation is {status}. No trustworthy return timetable was found, so the app does not invent one."
     else:
         outlook="No current Sleeper injury designation is present; historical injuries are background risk rather than evidence he is currently unavailable."
-    if practice:outlook+=f" Latest practice participation: {practice}."
-    if start:outlook+=f" Sleeper injury start date: {start}."
+
+    if practice:
+        outlook+=f" Latest practice participation: {practice}."
+    if start:
+        outlook+=f" Sleeper injury start date: {start}."
 
     low=status.lower()
     if low in ("ir","injured reserve","injury_reserve","out"):
@@ -968,92 +982,163 @@ def current_injury_outlook(player,news):
     elif status:
         fantasy_impact="My fantasy read: treat the designation as a real risk flag, but let practice trend and role reports determine how aggressively to downgrade him."
     else:
-        fantasy_impact="My fantasy read: there is no current designation, so I would not penalize him heavily for old injuries alone; use the history mainly to understand recurrence/availability risk."
+        fantasy_impact="My fantasy read: there is no current designation, so I would not penalize him heavily for old injuries alone; use the history mainly to understand recurrence and availability risk."
+
     return diagnosis,description,outlook,fantasy_impact
 
 def draftable_names(rankings_data):
     return {norm_name(p["name"]) for pos in DRAFT_POSITIONS for p in rankings_data.get(pos,[])[:TOP_N]}
 
-def injury_risk(rankings_data):
+def injury_risk_summary(rankings_data):
+    """
+    Fast Injury-board response:
+    Sleeper current status + small nflverse injury-report files only.
+    No weekly participation files and no news fan-out.
+    """
     players=sleeper_players()
     draftable=draftable_names(rankings_data)
+    candidates=[]
 
-    # Warm the five historical weekly player/team datasets concurrently. This
-    # avoids serial first-request downloads when 25 injury cards are evaluated.
-    hist_years=list(range(max(2009,SEASON-6),min(SEASON,2025)))
-    with ThreadPoolExecutor(max_workers=min(5,len(hist_years) or 1)) as ex:
-        futures=[]
-        for y in hist_years:
-            futures.append(ex.submit(load_player_weekly_stats,y))
-            futures.append(ex.submit(load_team_weekly_stats,y))
-        for fut in as_completed(futures):
-            try:fut.result()
-            except Exception:pass
-
-    base=[]
     for p in players.values():
         pos=(p.get("position") or "").upper()
-        if pos not in DRAFT_POSITIONS or not p.get("team") or not p.get("active",True):continue
+        if pos not in DRAFT_POSITIONS or not p.get("team") or not p.get("active",True):
+            continue
         name=player_name(p)
-        if norm_name(name) not in draftable:continue
-        episodes=injury_episodes_cached(name)
+        if norm_name(name) not in draftable:
+            continue
+
+        episodes=injury_episodes_basic_cached(name)
         status=str(p.get("injury_status") or "").strip()
-        age=num(p,"age",0);score=0;reasons=[]
+        age=num(p,"age",0)
+        score=0
+        reasons=[]
+
         if status:
-            score+=45;reasons.append(f"current: {status}")
+            score+=45
+            reasons.append(f"current: {status}")
+
         if episodes:
-            missed=sum((x["games_missed_estimate"] or 0) for x in episodes)
             duration=sum(x["report_duration_weeks"] for x in episodes)
-            score+=min(35,missed*8+duration*2)
+            out_weeks=sum(x["out_designated_weeks"] for x in episodes)
+            score+=min(35,duration*3+out_weeks*5)
             reasons.append(f"{len(episodes)} recent historical episode(s)")
+
         if age>=30:
-            score+=min(15,(age-29)*3);reasons.append(f"age {int(age)}")
-        base.append((min(score,100),name,p,episodes,reasons))
+            score+=min(15,(age-29)*3)
+            reasons.append(f"age {int(age)}")
 
-    base.sort(key=lambda x:x[0],reverse=True)
-    base=base[:TOP_N]
+        # Current label without a news request.
+        diagnosis,description,outlook,fantasy_impact=current_injury_outlook(p,[])
 
-    # Current injury reporting is fetched concurrently and cached for 30 minutes.
-    news_by_name={}
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futures={ex.submit(player_news_context,name,"injury",5):name for _,name,_,_,_ in base}
-        for fut in as_completed(futures):
-            try:news_by_name[futures[fut]]=fut.result()
-            except Exception:news_by_name[futures[fut]]=[]
-
-    candidates=[]
-    for score,name,p,episodes,reasons in base:
-        news=news_by_name.get(name,[])
-        diagnosis,current_description,outlook,fantasy_impact=current_injury_outlook(p,news)
-        latest=recent_news_summary(news)
-        hist_missed=sum((x["games_missed_estimate"] or 0) for x in episodes if x["games_missed_estimate"] is not None)
-        analysis=[]
-        if episodes:
-            analysis.append(
-                f"Across the two most recent matched historical injury-report episodes, the weekly-stat participation proxy estimates {hist_missed} missed game(s) during the report windows."
-            )
-        else:
-            analysis.append("No matching historical nflverse injury-report episode was found in the available window.")
-        if p.get("injury_status"):
-            analysis.append(f"Current Sleeper designation: {p.get('injury_status')}.")
-        if latest:
-            analysis.append(f"Latest matched injury report: {latest['title']} ({latest['source']}).")
         candidates.append({
-            "name":name,"team":p.get("team"),"position":p.get("position"),
-            "risk":round(score),"reason":", ".join(reasons),
+            "name":name,
+            "team":p.get("team"),
+            "position":p.get("position"),
+            "risk":round(min(score,100)),
+            "reason":", ".join(reasons),
             "current_status":p.get("injury_status") or "",
             "practice_participation":p.get("practice_participation") or "",
             "injury_start_date":p.get("injury_start_date"),
             "current_diagnosis":diagnosis,
-            "current_description":current_description,
+            "current_description":description,
             "return_outlook":outlook,
             "fantasy_impact":fantasy_impact,
-            "latest_news":latest,
             "recent_injuries":episodes,
-            "analysis":" ".join(analysis),
-            "missed_games_method":"Estimated from absence/presence in nflverse weekly player-stat rows during the injury-report window; this is a participation proxy, not an official inactive-list count."
+            "detail_loaded":False
         })
-    return candidates
+
+    candidates.sort(key=lambda x:x["risk"],reverse=True)
+    return candidates[:TOP_N]
+
+def _injury_detail_uncached(name):
+    players=sleeper_players()
+    player=next(
+        (p for p in players.values() if norm_name(player_name(p))==norm_name(name)),
+        None
+    )
+    if not player:
+        raise ValueError("Player not found in current Sleeper player universe.")
+
+    basic=injury_episodes_basic_cached(name)
+
+    # Only load weekly stats for the seasons this player actually needs.
+    detailed=[]
+    for ep in basic:
+        part=historical_participation(
+            name,
+            ep["season"],
+            ep["first_week"],
+            ep["last_week"],
+            ep.get("team") or ""
+        )
+        x=dict(ep)
+        x.update({
+            "games_missed_estimate":part["games_missed_estimate"],
+            "return_week":part["return_week"],
+            "return_evidence":part["participation_note"]
+        })
+        detailed.append(x)
+
+    # One player's current reporting, not 25 simultaneous searches.
+    news=player_news_context(name,"injury",5)
+    diagnosis,description,outlook,fantasy_impact=current_injury_outlook(player,news)
+    latest=recent_news_summary(news)
+
+    verified=[
+        x["games_missed_estimate"]
+        for x in detailed
+        if x.get("games_missed_estimate") is not None
+    ]
+    total_missed=sum(verified) if verified else None
+
+    analysis=[]
+    if detailed and total_missed is not None:
+        analysis.append(
+            f"Across the two most recent matched injury-report episodes, the weekly-stat participation reconstruction estimates {total_missed} missed game(s) during the relevant report windows."
+        )
+    elif detailed:
+        analysis.append(
+            "Historical injury-report episodes were found, but weekly participation could not be matched reliably enough to estimate games missed."
+        )
+    else:
+        analysis.append(
+            "No matching historical nflverse injury-report episode was found in the available window."
+        )
+
+    if player.get("injury_status"):
+        analysis.append(f"Current Sleeper designation: {player.get('injury_status')}.")
+
+    if latest:
+        analysis.append(f"Latest matched injury report: {latest['title']} ({latest['source']}).")
+
+    return {
+        "name":name,
+        "team":player.get("team"),
+        "position":player.get("position"),
+        "current_status":player.get("injury_status") or "",
+        "practice_participation":player.get("practice_participation") or "",
+        "injury_start_date":player.get("injury_start_date"),
+        "current_diagnosis":diagnosis,
+        "current_description":description,
+        "return_outlook":outlook,
+        "fantasy_impact":fantasy_impact,
+        "latest_news":latest,
+        "recent_injuries":detailed,
+        "analysis":" ".join(analysis),
+        "missed_games_method":"Estimated from absence/presence in nflverse weekly player-stat rows during the injury-report window, with team bye weeks excluded. This is a participation proxy, not an official inactive-list count."
+    }
+
+def injury_detail(name):
+    cache_key=f"injury_detail_{norm_name(name)}"
+    data,meta=stale_cached_json(
+        cache_key,
+        1800,       # refresh after 30 minutes
+        86400,      # serve a last-good detail for 24h if an upstream source fails
+        lambda:_injury_detail_uncached(name)
+    )
+    data=dict(data)
+    data["cache"]=meta
+    return data
 
 
 def sleeper_candidates(rankings_data,limit=60):
@@ -1488,7 +1573,7 @@ def health():
     return jsonify({
         "status": "ok",
         "app": "Fantasy Command Center",
-        "version": "8.4-analyst-stability",
+        "version": "8.5-analyst-stability",
         "season": SEASON,
         "time": int(time.time())
     })
@@ -2156,12 +2241,41 @@ def sleeper_radar_api():
 def injury_risk_api():
     scoring=request.args.get("scoring","PPR").upper()
     if scoring not in SCORING: scoring="PPR"
-    ranks=rankings(scoring)
-    return jsonify({
-        "items":injury_risk(ranks),
-        "injury_history_through":2024,
-        "sources":dict(SOURCE_STATE)
-    })
+    try:
+        ranks=rankings(scoring)
+        return jsonify({
+            "items":injury_risk_summary(ranks),
+            "injury_history_through":2024,
+            "progressive_detail":True,
+            "sources":dict(SOURCE_STATE)
+        })
+    except Exception as e:
+        source_fail("injury_risk",e)
+        # Return a valid JSON response even when upstream injury history is unavailable.
+        return jsonify({
+            "items":[],
+            "injury_history_through":2024,
+            "progressive_detail":True,
+            "error":"injury_summary_unavailable",
+            "message":str(e),
+            "sources":dict(SOURCE_STATE)
+        }), 200
+
+@app.get("/api/injury-detail")
+def injury_detail_api():
+    name=request.args.get("name","").strip()
+    if not name:
+        return jsonify({"error":"name required","message":"Player name is required."}),400
+    try:
+        return jsonify(injury_detail(name))
+    except ValueError as e:
+        return jsonify({"error":"player_not_found","message":str(e)}),404
+    except Exception as e:
+        source_fail("injury_detail",e)
+        return jsonify({
+            "error":"injury_detail_unavailable",
+            "message":str(e)
+        }),503
 
 
 NEWS_CACHE_TTL = 1800       # 30 minutes
