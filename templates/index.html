@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#17212b">
-<title>Fantasy Command Center V8.2</title>
+<title>Fantasy Command Center V8.3</title>
 <link rel="manifest" href="/static/manifest.json">
 <style>
 :root{
@@ -45,7 +45,21 @@ a{color:inherit}
 .twoStats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.statBox{background:#f4f1eb;padding:9px}.statBox b{font-family:Georgia,serif;font-size:21px}.statBox span{display:block;font-size:9px;color:var(--muted)}
 .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}.kpi{border:1px solid #e2ddd3;padding:7px}.kpi b{display:block;font-size:13px}.kpi span{font-size:9px;color:var(--muted)}
 .read{font-size:11px;line-height:1.45;margin-top:9px;padding:9px;border-left:3px solid var(--orange);background:#f8f4ed}.history{font-size:9px;color:var(--muted);margin-top:7px}
-.cards2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.feature{background:var(--card);border:1px solid var(--line);padding:13px;box-shadow:var(--shadow)}.featureTop{display:flex;justify-content:space-between;gap:10px}.featureTop strong{font-size:14px}.tag{font-size:9px;font-weight:900;padding:4px 6px;border:1px solid #d5d0c7;background:#f7f4ee;border-radius:3px;color:#5e6670}.tag.orange{color:var(--orange);border-color:#e5ae93;background:#fff6f1}.detail{font-size:11px;line-height:1.45;margin-top:9px}.detail label{display:block;font-size:9px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}.bar{height:5px;background:#e8e3da;margin-top:7px}.bar>span{display:block;height:100%;background:var(--blue)}.bar.risk>span{background:var(--red)}
+.cards2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.feature{background:var(--card);border:1px solid var(--line);padding:13px;box-shadow:var(--shadow)}.featureTop{display:flex;justify-content:space-between;gap:10px}.featureTop strong{font-size:14px}.tag{font-size:9px;font-weight:900;padding:4px 6px;border:1px solid #d5d0c7;background:#f7f4ee;border-radius:3px;color:#5e6670}.tag.orange{color:var(--orange);border-color:#e5ae93;background:#fff6f1}
+.evidenceRow{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+.evidenceChip{font-size:9px;font-weight:850;padding:4px 6px;border-radius:3px;background:#eef1f3;border:1px solid #d7dde2;color:#4f5e6b}
+.contextBox{margin-top:9px;padding:9px;background:#f5f2ec;border-left:3px solid var(--blue);font-size:10px;line-height:1.45}
+.contextBox strong{display:block;margin-bottom:2px}
+.articleLink{display:block;margin-top:7px;padding:8px 9px;border:1px solid #ddd7cc;background:white;text-decoration:none;font-size:10px;line-height:1.35;color:var(--blue)}
+.articleLink:hover{text-decoration:underline}
+.injuryEpisode{margin-top:10px;border:1px solid #ddd7cc;background:#fff;padding:10px}
+.injuryEpisode h4{margin:0 0 5px;font-size:12px}
+.injuryGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}
+.injuryDatum{padding:7px;background:#f6f3ed}.injuryDatum span{display:block;font-size:8px;text-transform:uppercase;color:var(--muted);font-weight:900;letter-spacing:.05em}.injuryDatum b{display:block;font-size:10px;margin-top:2px}
+.outlookBox{margin-top:9px;padding:9px;background:#f7f1e7;border-left:3px solid var(--gold);font-size:10px;line-height:1.45}
+.methodNote{font-size:9px;color:var(--muted);line-height:1.4;margin-top:9px}
+
+.detail{font-size:11px;line-height:1.45;margin-top:9px}.detail label{display:block;font-size:9px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}.bar{height:5px;background:#e8e3da;margin-top:7px}.bar>span{display:block;height:100%;background:var(--blue)}.bar.risk>span{background:var(--red)}
 .teamCard{background:var(--card);border:1px solid var(--line);padding:13px}.teamCardHead{display:flex;gap:10px;align-items:center}.teamBadge{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:white;font-weight:900;font-size:11px}.teamCardHead h3{margin:0;font-family:Georgia,serif}.teamCardHead small{color:var(--muted)}.metric{display:grid;grid-template-columns:120px minmax(0,1fr) 80px;gap:8px;align-items:center;padding:6px 0;border-top:1px solid #eeeae3;font-size:10px}.metric:first-of-type{margin-top:9px}.metricTrack{height:5px;background:#e7e2d9}.metricFill{height:100%;background:var(--blue)}.metricVal{text-align:right;font-weight:800}
 .newsGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.newsCard{display:block;text-decoration:none;background:var(--card);border:1px solid var(--line);padding:12px;box-shadow:var(--shadow)}.newsCard:hover{border-color:#a8a39a}.newsSource{font-size:9px;color:var(--orange);font-weight:900;text-transform:uppercase;letter-spacing:.08em}.newsTitle{font-family:Georgia,serif;font-size:17px;line-height:1.2;margin-top:6px}.newsSummary{font-size:10px;color:var(--muted);line-height:1.4;margin-top:7px}.newsMeta{font-size:10px;color:var(--muted);margin-bottom:10px}
 .empty{padding:22px;border:1px dashed #c9c4ba;background:#f7f4ee;color:var(--muted);text-align:center;font-size:12px}
@@ -158,7 +172,7 @@ a{color:inherit}
 </nav>
 
 <script>
-let board=null,activePos="ALL",riskLoaded=false,teamsLoaded=false,newsLoaded=false,newsData=null,newsSource="ALL";
+let board=null,activePos="ALL",sleeperLoaded=false,riskLoaded=false,teamsLoaded=false,newsLoaded=false,newsData=null,newsSource="ALL";
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const key=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const posColor={QB:"var(--qb)",RB:"var(--rb)",WR:"var(--wr)",TE:"var(--te)",K:"var(--k)",DST:"var(--dst)"};
@@ -171,7 +185,7 @@ function findPlayer(k){for(const pos of ["QB","RB","WR","TE","K","DST"]){const p
 function switchSection(target){
  document.querySelectorAll(".section").forEach(x=>x.classList.toggle("active",x.id===target));
  document.querySelectorAll("[data-target]").forEach(x=>x.classList.toggle("active",x.dataset.target===target));
- if(target==="teams")loadTeams();if(target==="risk")loadRisk();if(target==="news")loadNews();
+ if(target==="sleepers")loadSleeperRadar();if(target==="teams")loadTeams();if(target==="risk")loadRisk();if(target==="news")loadNews();
  window.scrollTo({top:0,behavior:"smooth"});
 }
 document.querySelectorAll("[data-target]").forEach(b=>b.addEventListener("click",()=>switchSection(b.dataset.target)));
@@ -202,8 +216,80 @@ async function loadAnalysis(p){
   panel.innerHTML=`<div class="analysisInner"><div class="twoStats"><div class="statBox"><b>${a.last_year_ppg??"—"}</b><span>${board.meta.prior_season} actual PPG</span></div><div class="statBox"><b>${a.projected_ppg??"—"}</b><span>${board.meta.season} model PPG</span></div></div><div class="kpis">${(a.kpis||[]).map(k=>`<div class="kpi"><b>${esc(k.value)}</b><span>${esc(k.label)}${k.rank?` · ${p.position} #${k.rank}`:""}</span></div>`).join("")}</div><div class="read"><b>Read:</b> ${esc(a.analysis||"")}</div><div class="history">${(a.history||[]).map(h=>`${h.season}: ${h.ppg} PPG`).join(" · ")}</div></div>`;panel.dataset.loaded="1";
  }catch(e){panel.innerHTML=`<div class="analysisInner">${esc(e.message)}</div>`}
 }
-function sleeperCards(items){if(!items?.length)return `<div class="empty">No sleeper data.</div>`;const mx=Math.max(1,...items.map(x=>x.adds||0));return items.map((p,i)=>`<div class="feature"><div class="featureTop"><div><strong>#${i+1} ${esc(p.name)}</strong><div class="psub">${esc(p.team)} · ${esc(p.position)}</div></div><span class="tag orange">${p.adds?`+${p.adds} adds`:"Value"}</span></div><div class="bar"><span style="width:${Math.max(5,(p.adds||0)/mx*100)}%"></span></div><div class="detail"><label>Why</label>${esc(p.why||"")}</div><div class="detail"><label>Upside</label>${esc(p.upside||"")}</div><div class="detail"><label>Acquisition plan</label><b>${esc(p.acquisition||"")}</b></div></div>`).join("")}
-function riskCards(items){if(!items?.length)return `<div class="empty">No meaningful draft-board risks returned.</div>`;return items.map((p,i)=>`<div class="feature"><div class="featureTop"><div><strong>#${i+1} ${esc(p.name)}</strong><div class="psub">${esc(p.team)} · ${esc(p.position)}</div></div><span class="tag">${p.risk}% risk</span></div><div class="bar risk"><span style="width:${Math.max(4,p.risk)}%"></span></div>${(p.recent_injuries||[]).map(x=>`<div class="detail"><label>${x.season} ${esc(x.week_range)}</label><b>${esc(x.injury)}</b> · ${x.weeks_out} week(s) Out</div>`).join("")}<div class="read">${esc(p.analysis||p.reason||"")}</div></div>`).join("")}
+function sleeperCards(items){
+ if(!items?.length)return `<div class="empty">No sleeper data.</div>`;
+ const mx=Math.max(1,...items.map(x=>x.adds||0));
+ return items.map((p,i)=>{
+   const evidence=(p.evidence||[]).map(x=>`<span class="evidenceChip">${esc(x)}</span>`).join("");
+   const ahead=(p.players_ahead||[]).length
+     ? `<div class="contextBox"><strong>Depth-chart competition</strong>${(p.players_ahead||[]).map(x=>`${esc(x.name)}${x.status?` (${esc(x.status)})`:""}`).join(" · ")}</div>`
+     : "";
+   const news=p.latest_news?.title
+     ? `<a class="articleLink" href="${esc(p.latest_news.url||"#")}" target="_blank" rel="noopener noreferrer"><b>Latest matched report · ${esc(p.latest_news.source||"News")}</b><br>${esc(p.latest_news.title)}</a>`
+     : `<div class="contextBox"><strong>News check</strong>No recent player-specific report matched strongly enough to use as a catalyst. The app is relying on depth-chart and market evidence instead.</div>`;
+   return `<div class="feature">
+     <div class="featureTop"><div><strong>#${i+1} ${esc(p.name)}</strong><div class="psub">${esc(p.team)} · ${esc(p.position)} · ${esc(p.catalyst_type||"Role/market")}</div></div><span class="tag orange">${p.adds?`+${Number(p.adds).toLocaleString()} adds`:"Value"}</span></div>
+     <div class="bar"><span style="width:${Math.max(5,(p.adds||0)/mx*100)}%"></span></div>
+     <div class="detail"><label>Why managers are adding him</label>${esc(p.why||"")}</div>
+     <div class="contextBox"><strong>Current role</strong>${esc(p.role_read||"Role information unavailable.")}</div>
+     ${ahead}
+     <div class="evidenceRow">${evidence}</div>
+     ${news}
+     <div class="detail"><label>What has to happen for the breakout</label>${esc(p.upside||"")}</div>
+     <div class="detail"><label>How I would handle him</label><b>${esc(p.acquisition||"")}</b></div>
+   </div>`;
+ }).join("");
+}
+
+function riskCards(items){
+ if(!items?.length)return `<div class="empty">No meaningful draft-board risks returned.</div>`;
+ return items.map((p,i)=>{
+   const latest=p.latest_news?.title
+     ? `<a class="articleLink" href="${esc(p.latest_news.url||"#")}" target="_blank" rel="noopener noreferrer"><b>Latest matched injury report · ${esc(p.latest_news.source||"News")}</b><br>${esc(p.latest_news.title)}</a>`
+     : "";
+   const episodes=(p.recent_injuries||[]).map(x=>{
+     const missed=x.games_missed_estimate==null?"Not verified":`${x.games_missed_estimate} estimated`;
+     return `<div class="injuryEpisode">
+       <h4>${esc(x.season)} · ${esc(x.diagnosis||x.injury)} · ${esc(x.week_range)}</h4>
+       <div class="injuryGrid">
+         <div class="injuryDatum"><span>Report window</span><b>${x.report_duration_weeks} week(s)</b></div>
+         <div class="injuryDatum"><span>Estimated games missed</span><b>${missed}</b></div>
+         <div class="injuryDatum"><span>Game designation</span><b>${esc(x.report_statuses||"Not recorded")}</b></div>
+         <div class="injuryDatum"><span>Practice status</span><b>${esc(x.practice_statuses||"Not recorded")}</b></div>
+       </div>
+       <div class="detail"><label>Injury description</label>${esc(x.description||"")}</div>
+       <div class="detail"><label>Return evidence</label>${esc(x.return_evidence||"")}</div>
+     </div>`;
+   }).join("");
+   return `<div class="feature">
+     <div class="featureTop"><div><strong>#${i+1} ${esc(p.name)}</strong><div class="psub">${esc(p.team)} · ${esc(p.position)}${p.current_status?` · ${esc(p.current_status)}`:""}</div></div><span class="tag">${p.risk}% risk</span></div>
+     <div class="bar risk"><span style="width:${Math.max(4,p.risk)}%"></span></div>
+     <div class="detail"><label>Current diagnosis / injury label</label><b>${esc(p.current_diagnosis||"No specific current diagnosis identified")}</b></div>
+     <div class="outlookBox"><b>Return outlook</b><br>${esc(p.return_outlook||"No reliable current timetable found.")}</div>
+     ${latest}
+     ${episodes}
+     <div class="read"><b>Risk read:</b> ${esc(p.analysis||p.reason||"")}</div>
+     <div class="methodNote">${esc(p.missed_games_method||"")}</div>
+   </div>`;
+ }).join("");
+}
+
+async function loadSleeperRadar(){
+ if(sleeperLoaded)return;
+ const el=document.getElementById("sleepersList");
+ el.innerHTML=`<div class="empty">Checking depth charts, teammate availability, Sleeper add velocity and recent player-specific reporting…</div>`;
+ try{
+   const s=document.getElementById("scoring").value;
+   const r=await fetch(`/api/sleeper-radar?scoring=${encodeURIComponent(s)}`);
+   const d=await r.json();
+   if(!r.ok)throw new Error(d.message||d.error||`HTTP ${r.status}`);
+   el.innerHTML=sleeperCards(d.items);
+   sleeperLoaded=true;
+ }catch(e){
+   el.innerHTML=`<div class="empty">Sleeper analysis failed: ${esc(e.message)}</div>`;
+ }
+}
+
 function teamCards(items){if(!items?.length)return `<div class="empty">Team stats unavailable.</div>`;return items.map((p,i)=>`<div class="teamCard"><div class="teamCardHead"><div class="teamBadge">${esc(p.team||p.name)}</div><div><h3>#${i+1} ${esc(p.name)}</h3><small>${esc(p.summary||"")}</small></div></div>${(p.stats||[]).map(s=>`<div class="metric"><span>${esc(s.label)}</span><div class="metricTrack"><div class="metricFill" style="width:${Math.max(4,(33-(s.league_rank||32))/32*100)}%"></div></div><div class="metricVal">${esc(s.value)} · #${s.league_rank}</div></div>`).join("")}<div class="read">${esc(p.analysis||"")}</div></div>`).join("")}
 
 function relAge(ts){if(!ts)return "recent";const d=Math.max(0,Date.now()/1000-ts);if(d<3600)return `${Math.max(1,Math.floor(d/60))}m`;if(d<86400)return `${Math.floor(d/3600)}h`;return `${Math.floor(d/86400)}d`}
@@ -212,7 +298,7 @@ async function loadNews(force=false){if(newsLoaded&&!force){renderNews();return}
 document.querySelectorAll("[data-source]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-source]").forEach(x=>x.classList.remove("active"));b.classList.add("active");newsSource=b.dataset.source;renderNews()}));document.getElementById("newsRefresh").addEventListener("click",()=>loadNews(true));
 
 async function loadTeams(){if(teamsLoaded)return;document.getElementById("defenses").innerHTML=`<div class="empty">Loading defensive metrics…</div>`;document.getElementById("offenses").innerHTML=`<div class="empty">Loading offensive metrics…</div>`;try{const r=await fetch("/api/team-power"),d=await r.json();document.getElementById("defenses").innerHTML=teamCards(d.defenses);document.getElementById("offenses").innerHTML=teamCards(d.offenses);teamsLoaded=true}catch(e){document.getElementById("defenses").innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
-async function loadRisk(){if(riskLoaded)return;document.getElementById("riskList").innerHTML=`<div class="empty">Loading injury history…</div>`;try{const s=document.getElementById("scoring").value,r=await fetch(`/api/injury-risk?scoring=${s}`),d=await r.json();document.getElementById("riskList").innerHTML=riskCards(d.items);riskLoaded=true}catch(e){document.getElementById("riskList").innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+async function loadRisk(){if(riskLoaded)return;document.getElementById("riskList").innerHTML=`<div class="empty">Reconstructing historical report windows, weekly participation and current injury reporting…</div>`;try{const s=document.getElementById("scoring").value,r=await fetch(`/api/injury-risk?scoring=${encodeURIComponent(s)}`),d=await r.json();if(!r.ok)throw new Error(d.message||d.error||`HTTP ${r.status}`);document.getElementById("riskList").innerHTML=riskCards(d.items);riskLoaded=true}catch(e){document.getElementById("riskList").innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 
 function gradeColor(g){if(g.startsWith("A"))return "var(--green)";if(g.startsWith("B"))return "var(--blue)";if(g.startsWith("C"))return "var(--gold)";return "var(--red)"}
 function rosterRows(items){return items.map(p=>`<div class="rosterPlayer"><div class="posSquare" style="background:${posColor[p.position]||"var(--ink)"}">${esc(p.position||"—")}</div><div><b>${esc(p.name)}</b><small>${esc(p.team||"")} ${p.injury_status?`· ${esc(p.injury_status)}`:""}${p.prior_ppg?` · ${p.prior_ppg} PPG`:""}</small></div><div class="valueScore">${p.value}</div></div>`).join("")}
@@ -245,8 +331,8 @@ async function analyzeLeague(id,user){document.getElementById("leagueLoading").s
 document.getElementById("findLeagues").addEventListener("click",async()=>{const user=document.getElementById("sleeperUser").value.trim();if(!user)return;document.getElementById("leagueChoices").innerHTML=`<div class="empty">Finding leagues…</div>`;try{const r=await fetch(`/api/sleeper/leagues?username=${encodeURIComponent(user)}&season=2026`),d=await r.json();if(d.error)throw new Error(d.error);document.getElementById("leagueChoices").innerHTML=(d.leagues||[]).map(l=>`<button class="leagueChoice" data-league="${esc(l.league_id)}"><b>${esc(l.name)}</b><span>${esc(l.status)} · ${l.total_rosters} teams · ${esc(l.season)}</span></button>`).join("")||`<div class="empty">No 2026 Sleeper leagues found.</div>`;document.querySelectorAll("[data-league]").forEach(b=>b.addEventListener("click",()=>analyzeLeague(b.dataset.league,user)))}catch(e){document.getElementById("leagueChoices").innerHTML=`<div class="empty">${esc(e.message)}</div>`}});
 
 async function loadBoard(){
- const s=document.getElementById("scoring").value;document.getElementById("notice").textContent="Loading rankings and market data…";riskLoaded=false;teamsLoaded=false;
- try{const r=await fetch(`/api/dashboard?scoring=${s}`),d=await r.json();if(!r.ok)throw new Error(`HTTP ${r.status}`);board=d;renderBoard();document.getElementById("sleepersList").innerHTML=sleeperCards(d.sleepers);const counts=d.meta.counts||{},total=Object.values(counts).reduce((a,b)=>a+b,0),full=Object.values(counts).filter(x=>x>=25).length;document.getElementById("boardCount").textContent=total;document.getElementById("fullCount").textContent=`${full}/6`;document.getElementById("scoreMode").textContent=s;document.getElementById("watchCount").textContent=watch().length;document.getElementById("topStatus").textContent=`${full}/6 boards full`;document.getElementById("notice").textContent=`Board ready · ${total} ranked entries · deeper analysis loads only when requested.`}catch(e){document.getElementById("notice").textContent=`Dashboard failed: ${e.message}`}}
+ const s=document.getElementById("scoring").value;document.getElementById("notice").textContent="Loading rankings and market data…";sleeperLoaded=false;riskLoaded=false;teamsLoaded=false;
+ try{const r=await fetch(`/api/dashboard?scoring=${s}`),d=await r.json();if(!r.ok)throw new Error(`HTTP ${r.status}`);board=d;renderBoard();document.getElementById("sleepersList").innerHTML=`<div class="empty">Open Sleeper Radar to run the catalyst analysis.</div>`;const counts=d.meta.counts||{},total=Object.values(counts).reduce((a,b)=>a+b,0),full=Object.values(counts).filter(x=>x>=25).length;document.getElementById("boardCount").textContent=total;document.getElementById("fullCount").textContent=`${full}/6`;document.getElementById("scoreMode").textContent=s;document.getElementById("watchCount").textContent=watch().length;document.getElementById("topStatus").textContent=`${full}/6 boards full`;document.getElementById("notice").textContent=`Board ready · ${total} ranked entries · deeper analysis loads only when requested.`}catch(e){document.getElementById("notice").textContent=`Dashboard failed: ${e.message}`}}
 document.getElementById("search").addEventListener("input",renderBoard);document.querySelectorAll("[data-pos]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-pos]").forEach(x=>x.classList.remove("active"));b.classList.add("active");activePos=b.dataset.pos;renderBoard()}));document.getElementById("refresh").addEventListener("click",loadBoard);document.getElementById("scoring").addEventListener("change",loadBoard);
 
 

@@ -336,3 +336,46 @@ waiver targets, drop candidates and add/drop upgrade suggestions.
 
 V8.2 deliberately uses manual user-triggered refreshes rather than storing ESPN
 authentication on Render.
+
+
+## V8.3 — Context Engine
+
+### Sleeper Radar
+Sleeper Radar is now lazy-loaded and evidence-driven. For each target it combines:
+- Sleeper 24-hour add velocity
+- current team and position
+- depth-chart order and depth-chart position
+- same-team players ahead on the depth chart
+- injury/availability flags on those players
+- the sleeper's own injury designation
+- recent player-specific fantasy/NFL news
+- FantasyPros player news when an API key is configured
+
+The analysis explicitly separates:
+- verified injury-created opportunity
+- current starting/depth-chart role
+- market confirmation
+- recent news catalyst
+- acquisition plan
+- conditions that must occur for the upside case
+
+If no starter injury or role catalyst is verified, the app says so instead of
+using add momentum as a substitute for an explanation.
+
+### Injury Board
+Historical nflverse injury reports are now reconstructed into episodes with:
+- reported injury / diagnosis label
+- plain-language injury description
+- report window in weeks
+- game-status designations
+- practice-status designations
+- estimated games missed during the report window
+- evidence of return from weekly player-stat participation
+- current Sleeper designation/practice participation
+- current matched injury news and return outlook
+
+"Estimated games missed" is a transparent participation proxy derived from
+nflverse weekly player-stat rows. It is not labeled as an official inactive-list
+count.
+
+The old "0 weeks Out" display has been removed.

@@ -159,6 +159,35 @@ def player_name(p):
 def nflverse_player_urls(year):
     return [f"https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_reg_{year}.csv"]
 
+def nflverse_player_week_urls(year):
+    return [f"https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_{year}.csv"]
+
+@lru_cache(maxsize=8)
+def load_player_weekly_stats(year):
+    try:
+        rows,src=cached_csv(
+            f"stats_player_week_{year}",86400*14,
+            nflverse_player_week_urls(year),
+            ["player_display_name","position","week"]
+        )
+        source_ok(f"player_week_{year}",f"nflverse weekly {src}")
+        return rows
+    except Exception as e:
+        source_fail(f"player_week_{year}",e)
+        return []
+
+@lru_cache(maxsize=8)
+def weekly_participation_index(year):
+    idx={}
+    for r in load_player_weekly_stats(year):
+        name=norm_name(r.get("player_display_name") or r.get("player_name") or "")
+        if not name:continue
+        try:w=int(float(r.get("week") or 0))
+        except:w=0
+        if w:
+            idx.setdefault(name,set()).add(w)
+    return idx
+
 def nflverse_team_week_urls(year):
     return [f"https://github.com/nflverse/nflverse-data/releases/download/stats_team/stats_team_week_{year}.csv"]
 
@@ -641,32 +670,205 @@ def load_injury_year(year):
         return []
 
 
+
+INJURY_INFO={
+    "acl":("ACL injury","Involves the anterior cruciate ligament that stabilizes the knee. Complete tears commonly require reconstruction and a long rehabilitation; the feed does not identify tear grade unless reporting says so."),
+    "mcl":("MCL injury","Involves the medial collateral ligament on the inside of the knee. Return varies substantially with sprain grade and associated damage."),
+    "achilles":("Achilles injury","Involves the tendon connecting the calf to the heel. A rupture is a major injury; a generic Achilles label does not prove rupture."),
+    "high ankle":("High-ankle sprain","A syndesmotic ankle injury above the traditional ankle joint. These often recover more slowly than routine lateral ankle sprains."),
+    "ankle":("Ankle injury","An ankle injury can range from a mild sprain to a higher-grade ligament or bone injury. The historical report label alone does not establish severity."),
+    "hamstring":("Hamstring injury","Involves the posterior-thigh muscle/tendon complex. Recurrence risk and return timing depend heavily on strain location and grade."),
+    "groin":("Groin injury","Usually involves the adductor/hip-groin complex. Cutting and acceleration can remain limited until strength and pain normalize."),
+    "calf":("Calf injury","Involves the calf muscle/tendon complex. Explosive acceleration can be affected and recurrence is possible if return is rushed."),
+    "quad":("Quadriceps injury","Involves the anterior-thigh muscle group. Severity ranges from soreness/contusion to a muscle strain."),
+    "concussion":("Concussion","A brain injury managed through the NFL concussion protocol. Return is based on symptom resolution and completion of protocol stages, not a fixed timetable."),
+    "shoulder":("Shoulder injury","A broad shoulder designation can involve joint, labrum, AC joint or surrounding soft tissue. The generic report label does not establish the exact structure."),
+    "knee":("Knee injury","A broad knee designation. It can involve ligament, meniscus, tendon, bone or inflammation; the weekly injury report does not provide enough detail to infer severity."),
+    "foot":("Foot injury","A broad foot designation that can involve bone, ligament or soft tissue. Weight-bearing tolerance and the exact diagnosis drive return."),
+    "toe":("Toe injury","Toe injuries can materially affect push-off and change of direction. The generic report does not identify whether this is a sprain, fracture or turf-toe pattern."),
+    "wrist":("Wrist injury","A wrist injury can affect ball security, catching and blocking. Exact return depends on structure and severity."),
+    "hand":("Hand injury","A hand injury can affect grip, catching and ball security. The historical label does not identify fracture versus soft-tissue injury."),
+    "rib":("Rib/chest injury","Rib and chest-wall injuries can be painful with contact and breathing. Return often depends on pain control and protection."),
+    "back":("Back injury","A broad back designation. Muscle, disc, nerve and joint causes have very different recovery paths, so a generic label should not be treated as a specific diagnosis."),
+    "hip":("Hip injury","A broad hip designation that can involve flexor/adductor muscle, joint or surrounding structures. Exact recovery depends on diagnosis and severity.")
+}
+
+def injury_description(label):
+    text=(label or "").lower()
+    for key,(diagnosis,desc) in INJURY_INFO.items():
+        if key in text:
+            return diagnosis,desc
+    clean=(label or "Unspecified injury").strip()
+    return clean, f"The historical report identifies this as {clean.lower()}, but does not provide enough detail to determine structure, grade or severity."
+
+def extract_specific_injury(text,fallback=""):
+    blob=(text or "").lower()
+    ordered=[
+        ("high ankle sprain","High-ankle sprain"),("torn acl","ACL tear"),("acl tear","ACL tear"),
+        ("torn mcl","MCL tear"),("mcl sprain","MCL sprain"),("achilles rupture","Achilles rupture"),
+        ("torn achilles","Achilles rupture"),("concussion","Concussion"),("hamstring strain","Hamstring strain"),
+        ("hamstring","Hamstring injury"),("groin strain","Groin strain"),("groin","Groin injury"),
+        ("ankle sprain","Ankle sprain"),("ankle","Ankle injury"),("knee","Knee injury"),
+        ("calf","Calf injury"),("quadriceps","Quadriceps injury"),("quad","Quadriceps injury"),
+        ("shoulder","Shoulder injury"),("foot","Foot injury"),("toe","Toe injury"),
+        ("wrist","Wrist injury"),("hand","Hand injury"),("rib","Rib/chest injury"),
+        ("back","Back injury"),("hip","Hip injury")
+    ]
+    for key,label in ordered:
+        if key in blob:return label
+    return fallback or "No specific diagnosis identified"
+
+def extract_timeline_signal(text):
+    blob=re.sub(r"\s+"," ",text or "").strip()
+    low=blob.lower()
+    patterns=[
+        (r"(?:out|miss(?:ing)?|sidelined for)\s+(?:approximately\s+|about\s+)?(\d+)\s*[-–to]+\s*(\d+)\s+weeks",lambda m:f"Reported timetable: {m.group(1)}–{m.group(2)} weeks."),
+        (r"(?:out|miss(?:ing)?|sidelined for)\s+(?:approximately\s+|about\s+)?(\d+)\s+weeks",lambda m:f"Reported timetable: about {m.group(1)} weeks."),
+        (r"week[- ]to[- ]week",lambda m:"Latest reporting describes the player as week-to-week."),
+        (r"day[- ]to[- ]day",lambda m:"Latest reporting describes the player as day-to-day."),
+        (r"season[- ]ending|out for the season",lambda m:"Latest reporting indicates a season-ending absence."),
+        (r"placed on (?:injured reserve|ir)",lambda m:"Latest reporting says the player was placed on injured reserve; monitor eligibility and team updates for the return window."),
+        (r"(?:expected|targeting|on track) to return[^.]{0,80}",lambda m:"Latest reporting includes a stated return target; open the linked report for the exact wording.")
+    ]
+    for pat,fn in patterns:
+        m=re.search(pat,low,re.I)
+        if m:return fn(m)
+    return ""
+
+def fantasypros_player_news(name,category=None,limit=6):
+    if not FANTASYPROS_KEY:return []
+    try:
+        players=cached_json("fp_players_current",86400,lambda:fp("/nfl/players"))
+        arr=players.get("players") or []
+        target=next((p for p in arr if norm_name(p.get("player_name") or p.get("name"))==norm_name(name)),None)
+        if not target:return []
+        pid=target.get("player_id") or target.get("id")
+        params={"fpid":pid,"limit":limit}
+        if category:params["category"]=category
+        payload=fp("/nfl/news",params)
+        out=[]
+        for x in payload.get("items") or []:
+            out.append({
+                "title":strip_markup(x.get("title") or ""),
+                "summary":strip_markup(x.get("desc") or x.get("description") or "")[:300],
+                "url":x.get("link") or "",
+                "source":"FantasyPros",
+                "published_ts":parse_pubdate(x.get("created_formated") or "") or 0
+            })
+        return [x for x in out if x["title"]]
+    except Exception as e:
+        source_fail("fantasypros_player_news",e)
+        return []
+
+def player_news_context(name,purpose="fantasy",limit=5):
+    cache_key=f"player_context_{purpose}_{norm_name(name)}"
+    def loader():
+        fp_items=fantasypros_player_news(name,"injury" if purpose=="injury" else None,limit)
+        query=f'"{name}" NFL injury fantasy' if purpose=="injury" else f'"{name}" NFL fantasy football'
+        web_items=[]
+        try:web_items=google_news_rss(query,"News",limit)
+        except Exception:web_items=[]
+        items=fp_items+web_items
+        dedup={}
+        for a in items:
+            k=re.sub(r"[^a-z0-9]+"," ",a.get("title","").lower()).strip()
+            if k and k not in dedup:dedup[k]=a
+        return sorted(dedup.values(),key=lambda x:x.get("published_ts") or 0,reverse=True)[:limit]
+    try:
+        data,_=stale_cached_json(cache_key,1800,43200,loader)
+        return data
+    except Exception:
+        return []
+
+def recent_news_summary(items):
+    if not items:return None
+    a=items[0]
+    return {
+        "title":a.get("title") or "",
+        "source":a.get("source") or "News",
+        "url":a.get("url") or "",
+        "published_ts":a.get("published_ts") or 0
+    }
+
+def peer_role_context(player,players):
+    team=player.get("team");pos=(player.get("position") or "").upper()
+    try:order=int(float(player.get("depth_chart_order") or 99))
+    except:order=99
+    peers=[]
+    for q in players.values():
+        if q is player or q.get("team")!=team or (q.get("position") or "").upper()!=pos:continue
+        try:qo=int(float(q.get("depth_chart_order") or 99))
+        except:qo=99
+        peers.append((qo,q))
+    def peer_search_rank(item):
+        try:return float(item[1].get("search_rank") or 999999)
+        except:return 999999
+    peers.sort(key=lambda x:(x[0],peer_search_rank(x)))
+    ahead=[q for qo,q in peers if qo<order]
+    injured_ahead=[
+        q for q in ahead
+        if (q.get("injury_status") or str(q.get("status") or "").lower() not in ("active",""))
+    ]
+    return order,ahead,injured_ahead
+
+@lru_cache(maxsize=16)
+def team_game_weeks(year,team):
+    out=set()
+    for r in load_team_weekly_stats(year):
+        if (r.get("team") or "").upper()!=(team or "").upper():continue
+        try:w=int(float(r.get("week") or 0))
+        except:w=0
+        if w:out.add(w)
+    return out
+
+def historical_participation(name,season,first_week,last_week,team=""):
+    weeks=weekly_participation_index(season).get(norm_name(name),set())
+    if not weeks:
+        return {
+            "games_missed_estimate":None,"return_week":None,
+            "participation_note":"Weekly participation could not be matched for this player/season."
+        }
+    # Count only weeks in which the player's team actually played, so a bye
+    # inside an injury-report window is not mislabeled as a missed game.
+    scheduled=team_game_weeks(season,team) if team else set()
+    candidate_window=list(range(max(1,first_week),min(18,last_week)+1))
+    window=[w for w in candidate_window if not scheduled or w in scheduled]
+    missed=sum(1 for w in window if w not in weeks)
+    after=sorted(w for w in weeks if w>last_week and (not scheduled or w in scheduled))
+    return_week=after[0] if after else None
+    return {
+        "games_missed_estimate":missed,
+        "return_week":return_week,
+        "participation_note":(
+            f"Recorded weekly player-stat participation again in Week {return_week}."
+            if return_week else
+            "No later weekly player-stat row was found in that season, so a return week could not be verified."
+        )
+    }
+
 @lru_cache(maxsize=1)
 def injury_history_index():
     index={}
     years=list(range(max(2009,SEASON-6),min(SEASON,2025)))
-    # Download/parse the independent season files concurrently.
     with ThreadPoolExecutor(max_workers=min(5,len(years))) as ex:
         futures={ex.submit(load_injury_year,y):y for y in years}
         for fut in as_completed(futures):
-            try:
-                season_rows=fut.result()
-            except Exception:
-                season_rows=[]
+            try:season_rows=fut.result()
+            except Exception:season_rows=[]
             for r in season_rows:
                 name=norm_name(r.get("full_name"))
-                if not name:
-                    continue
+                if not name:continue
                 injury=(r.get("report_primary_injury") or r.get("practice_primary_injury") or "").strip()
-                if not injury:
-                    continue
-                try: week=int(float(r.get("week") or 0))
-                except: week=0
-                try: season=int(float(r.get("season") or futures[fut]))
-                except: season=futures[fut]
+                if not injury:continue
+                try:week=int(float(r.get("week") or 0))
+                except:week=0
+                try:season=int(float(r.get("season") or futures[fut]))
+                except:season=futures[fut]
                 index.setdefault(name,[]).append({
                     "season":season,"week":week,"injury":injury,
-                    "status":(r.get("report_status") or "").strip()
+                    "team":(r.get("team") or "").strip(),
+                    "report_status":(r.get("report_status") or "").strip(),
+                    "practice_status":(r.get("practice_status") or "").strip()
                 })
     for rows in index.values():
         rows.sort(key=lambda x:(x["season"],x["week"]))
@@ -677,29 +879,68 @@ def injury_episodes_cached(name):
     rows=list(injury_history_index().get(norm_name(name),[]))
     eps=[]
     for r in rows:
-        same=eps and eps[-1]["season"]==r["season"] and eps[-1]["injury"].lower()==r["injury"].lower() and r["week"]<=eps[-1]["last_week"]+1
+        same=(
+            eps and eps[-1]["season"]==r["season"]
+            and eps[-1]["injury"].lower()==r["injury"].lower()
+            and r["week"]<=eps[-1]["last_week"]+1
+        )
         if same:
             ep=eps[-1]
             ep["last_week"]=max(ep["last_week"],r["week"])
             ep["weeks_reported"]+=1
-            if r["status"].lower()=="out": ep["weeks_out"]+=1
-            if r["status"]: ep["statuses"].add(r["status"])
+            if r["report_status"]:ep["report_statuses"].add(r["report_status"])
+            if r["practice_status"]:ep["practice_statuses"].add(r["practice_status"])
         else:
             eps.append({
                 "season":r["season"],"first_week":r["week"],"last_week":r["week"],
-                "injury":r["injury"],"weeks_reported":1,
-                "weeks_out":1 if r["status"].lower()=="out" else 0,
-                "statuses":set([r["status"]]) if r["status"] else set()
+                "injury":r["injury"],"team":r.get("team") or "","weeks_reported":1,
+                "report_statuses":set([r["report_status"]]) if r["report_status"] else set(),
+                "practice_statuses":set([r["practice_status"]]) if r["practice_status"] else set()
             })
     out=[]
     for ep in reversed(eps[-2:]):
+        diagnosis,desc=injury_description(ep["injury"])
+        part=historical_participation(name,ep["season"],ep["first_week"],ep["last_week"],ep.get("team") or "")
         out.append({
-            "season":ep["season"],"injury":ep["injury"],
-            "weeks_reported":ep["weeks_reported"],"weeks_out":ep["weeks_out"],
+            "season":ep["season"],"team":ep.get("team") or "","injury":ep["injury"],"diagnosis":diagnosis,
+            "description":desc,
+            "weeks_reported":ep["weeks_reported"],
+            "report_duration_weeks":max(1,ep["last_week"]-ep["first_week"]+1),
+            "games_missed_estimate":part["games_missed_estimate"],
+            "return_week":part["return_week"],
+            "return_evidence":part["participation_note"],
             "week_range":f"Wk {ep['first_week']}" if ep["first_week"]==ep["last_week"] else f"Wks {ep['first_week']}-{ep['last_week']}",
-            "statuses":", ".join(sorted(ep["statuses"]))
+            "report_statuses":", ".join(sorted(ep["report_statuses"])),
+            "practice_statuses":", ".join(sorted(ep["practice_statuses"]))
         })
     return out
+
+def current_injury_outlook(player,news):
+    status=str(player.get("injury_status") or "").strip()
+    practice=str(player.get("practice_participation") or "").strip()
+    start=str(player.get("injury_start_date") or "").strip()
+    blob=" ".join((a.get("title","")+" "+a.get("summary","")) for a in news[:3])
+    timeline=extract_timeline_signal(blob)
+    specific=extract_specific_injury(blob,player.get("injury_body_part") or "")
+    if timeline:
+        outlook=timeline
+    elif status.lower() in ("ir","injured reserve","injury_reserve"):
+        outlook="Currently designated for injured reserve in Sleeper metadata. No exact return date is inferred without a current team/reporting timetable."
+    elif status.lower()=="out":
+        outlook="Currently listed Out. Treat the near-term availability as negative until practice participation or team reporting improves."
+    elif status.lower()=="doubtful":
+        outlook="Currently Doubtful; near-term availability is poor unless the designation changes."
+    elif status.lower()=="questionable":
+        outlook="Currently Questionable. Practice participation and the final game-status report are the key next signals."
+    elif status:
+        outlook=f"Current Sleeper designation is {status}. No reliable return timetable was found in the matched news, so the app does not invent one."
+    else:
+        outlook="No current Sleeper injury designation is present."
+    if practice:
+        outlook+=f" Latest practice participation: {practice}."
+    if start:
+        outlook+=f" Sleeper injury start date: {start}."
+    return specific,outlook
 
 def draftable_names(rankings_data):
     return {norm_name(p["name"]) for pos in DRAFT_POSITIONS for p in rankings_data.get(pos,[])[:TOP_N]}
@@ -707,106 +948,250 @@ def draftable_names(rankings_data):
 def injury_risk(rankings_data):
     players=sleeper_players()
     draftable=draftable_names(rankings_data)
-    candidates=[]
+
+    # Warm the five historical weekly player/team datasets concurrently. This
+    # avoids serial first-request downloads when 25 injury cards are evaluated.
+    hist_years=list(range(max(2009,SEASON-6),min(SEASON,2025)))
+    with ThreadPoolExecutor(max_workers=min(5,len(hist_years) or 1)) as ex:
+        futures=[]
+        for y in hist_years:
+            futures.append(ex.submit(load_player_weekly_stats,y))
+            futures.append(ex.submit(load_team_weekly_stats,y))
+        for fut in as_completed(futures):
+            try:fut.result()
+            except Exception:pass
+
+    base=[]
     for p in players.values():
         pos=(p.get("position") or "").upper()
-        if pos not in DRAFT_POSITIONS or not p.get("team") or not p.get("active",True): continue
+        if pos not in DRAFT_POSITIONS or not p.get("team") or not p.get("active",True):continue
         name=player_name(p)
-        if norm_name(name) not in draftable: continue
+        if norm_name(name) not in draftable:continue
         episodes=injury_episodes_cached(name)
         status=str(p.get("injury_status") or "").strip()
-        age=num(p,"age",0); score=0; reasons=[]
+        age=num(p,"age",0);score=0;reasons=[]
         if status:
-            score+=45; reasons.append(f"current: {status}")
+            score+=45;reasons.append(f"current: {status}")
         if episodes:
-            outweeks=sum(x["weeks_out"] for x in episodes)
-            repweeks=sum(x["weeks_reported"] for x in episodes)
-            score+=min(35,outweeks*7+repweeks*2)
-            reasons.append(f"{len(episodes)} recent documented episode(s)")
+            missed=sum((x["games_missed_estimate"] or 0) for x in episodes)
+            duration=sum(x["report_duration_weeks"] for x in episodes)
+            score+=min(35,missed*8+duration*2)
+            reasons.append(f"{len(episodes)} recent historical episode(s)")
         if age>=30:
-            score+=min(15,(age-29)*3)
-            reasons.append(f"age {int(age)}")
-        analysis = (
-            f"{name} has {sum(x['weeks_out'] for x in episodes)} documented week(s) listed Out across the two most recent "
-            f"available injury episodes." if episodes else
-            f"No matching historical nflverse injury episode was found; the score is driven by current designation/age."
-        )
-        if status:
-            analysis += f" Current Sleeper designation: {status}."
-        elif not episodes:
-            analysis += " No current Sleeper injury designation is present, so this is a comparatively low-risk profile."
-        candidates.append({"name":name,"team":p.get("team"),"position":pos,"risk":round(min(score,100)),
-                           "reason":", ".join(reasons),"recent_injuries":episodes,"analysis":analysis})
-    candidates.sort(key=lambda x:x["risk"],reverse=True)
-    # If fewer than 25 have meaningful risk, show only meaningful risks rather than manufacturing risk scores.
-    return candidates[:TOP_N]
+            score+=min(15,(age-29)*3);reasons.append(f"age {int(age)}")
+        base.append((min(score,100),name,p,episodes,reasons))
+
+    base.sort(key=lambda x:x[0],reverse=True)
+    base=base[:TOP_N]
+
+    # Current injury reporting is fetched concurrently and cached for 30 minutes.
+    news_by_name={}
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futures={ex.submit(player_news_context,name,"injury",5):name for _,name,_,_,_ in base}
+        for fut in as_completed(futures):
+            try:news_by_name[futures[fut]]=fut.result()
+            except Exception:news_by_name[futures[fut]]=[]
+
+    candidates=[]
+    for score,name,p,episodes,reasons in base:
+        news=news_by_name.get(name,[])
+        diagnosis,outlook=current_injury_outlook(p,news)
+        latest=recent_news_summary(news)
+        hist_missed=sum((x["games_missed_estimate"] or 0) for x in episodes if x["games_missed_estimate"] is not None)
+        analysis=[]
+        if episodes:
+            analysis.append(
+                f"Across the two most recent matched historical injury-report episodes, the weekly-stat participation proxy estimates {hist_missed} missed game(s) during the report windows."
+            )
+        else:
+            analysis.append("No matching historical nflverse injury-report episode was found in the available window.")
+        if p.get("injury_status"):
+            analysis.append(f"Current Sleeper designation: {p.get('injury_status')}.")
+        if latest:
+            analysis.append(f"Latest matched injury report: {latest['title']} ({latest['source']}).")
+        candidates.append({
+            "name":name,"team":p.get("team"),"position":p.get("position"),
+            "risk":round(score),"reason":", ".join(reasons),
+            "current_status":p.get("injury_status") or "",
+            "practice_participation":p.get("practice_participation") or "",
+            "injury_start_date":p.get("injury_start_date"),
+            "current_diagnosis":diagnosis,
+            "return_outlook":outlook,
+            "latest_news":latest,
+            "recent_injuries":episodes,
+            "analysis":" ".join(analysis),
+            "missed_games_method":"Estimated from absence/presence in nflverse weekly player-stat rows during the injury-report window; this is a participation proxy, not an official inactive-list count."
+        })
+    return candidates
+
 
 def sleeper_candidates(rankings_data):
-    players=sleeper_players(); trend=sleeper_trending()
+    players=sleeper_players();trend=sleeper_trending()
     drafted=draftable_names(rankings_data)
-    result=[]; seen=set()
+    result=[];seen=set()
     for t in trend:
         p=players.get(str(t.get("player_id")),{})
-        pos=(p.get("position") or "").upper()
-        name=player_name(p)
-        if pos not in DRAFT_POSITIONS or not p.get("team") or not name: continue
+        pos=(p.get("position") or "").upper();name=player_name(p)
+        if pos not in DRAFT_POSITIONS or not p.get("team") or not name:continue
         n=norm_name(name)
-        # A sleeper board is more useful when it excludes obvious Top-25 positional names.
-        if n in drafted or n in seen: continue
+        if n in drafted or n in seen:continue
         seen.add(n)
-        result.append({"name":name,"team":p.get("team"),"position":pos,"adds":int(t.get("count") or 0),
-                       "search_rank":p.get("search_rank"),"reason":"Trending on Sleeper"})
-        if len(result)>=TOP_N: break
-    # Fill with current rostered players by Sleeper search rank if trend data is short.
+        result.append({
+            "player_id":str(t.get("player_id")),"name":name,"team":p.get("team"),"position":pos,
+            "adds":int(t.get("count") or 0),"search_rank":p.get("search_rank"),
+            "depth_chart_order":p.get("depth_chart_order"),
+            "depth_chart_position":p.get("depth_chart_position"),
+            "injury_status":p.get("injury_status"),"reason":"Trending on Sleeper"
+        })
+        if len(result)>=TOP_N:break
     if len(result)<TOP_N:
         vals=[]
-        for p in players.values():
-            pos=(p.get("position") or "").upper(); name=player_name(p); n=norm_name(name)
-            if pos not in DRAFT_POSITIONS or not p.get("team") or not name or n in drafted or n in seen: continue
-            try: sr=float(p.get("search_rank"))
-            except: sr=999999
-            vals.append((sr,name,p))
+        for pid,p in players.items():
+            pos=(p.get("position") or "").upper();name=player_name(p);n=norm_name(name)
+            if pos not in DRAFT_POSITIONS or not p.get("team") or not name or n in drafted or n in seen:continue
+            try:sr=float(p.get("search_rank"))
+            except:sr=999999
+            vals.append((sr,name,pid,p))
         vals.sort(key=lambda x:x[0])
-        for sr,name,p in vals:
+        for sr,name,pid,p in vals:
             seen.add(norm_name(name))
-            result.append({"name":name,"team":p.get("team"),"position":p.get("position"),"adds":0,
-                           "search_rank":sr,"reason":"Current rostered upside candidate"})
-            if len(result)>=TOP_N: break
+            result.append({
+                "player_id":str(pid),"name":name,"team":p.get("team"),"position":p.get("position"),
+                "adds":0,"search_rank":sr,"depth_chart_order":p.get("depth_chart_order"),
+                "depth_chart_position":p.get("depth_chart_position"),
+                "injury_status":p.get("injury_status"),"reason":"Current rostered upside candidate"
+            })
+            if len(result)>=TOP_N:break
     return result[:TOP_N]
 
-def sleeper_breakout(player,analytics=None):
-    pos=player.get("position"); adds=player.get("adds",0); a=analytics or {}
-    proj=a.get("projected_ppg"); last=a.get("last_year_ppg")
+def sleeper_breakout(player,analytics=None,news=None,players=None):
+    players=players or sleeper_players()
+    news=news or []
+    p=players.get(str(player.get("player_id")),{})
+    if not p:
+        p=next((x for x in players.values() if norm_name(player_name(x))==norm_name(player.get("name"))),{})
+    pos=(player.get("position") or "").upper();adds=int(player.get("adds") or 0)
+    order,ahead,injured_ahead=peer_role_context(p,players) if p else (99,[],[])
+    latest=recent_news_summary(news)
+    evidence=[]
     why=[]
-    if adds>=500: why.append("Heavy add momentum says the market is starting to notice him.")
-    elif adds>=100: why.append("He has meaningful Sleeper add momentum but is not yet an obvious early-round name.")
-    elif adds>0: why.append("He is beginning to draw waiver/draft attention while still sitting outside the Top-25 positional board.")
-    else: why.append("He remains outside the Top-25 positional board, which keeps the acquisition cost low.")
+    role_read=""
+
+    if order<99:
+        if order==1:
+            role_read=f"Sleeper currently lists him first at {p.get('depth_chart_position') or pos} on the {p.get('team')} depth chart."
+            why.append("The role signal is already meaningful: he is listed first on the current Sleeper depth chart.")
+        else:
+            role_read=f"Sleeper lists him No. {order} at {p.get('depth_chart_position') or pos} for {p.get('team')}."
+            why.append(f"He is currently No. {order} on the Sleeper depth chart, so this is not automatically a starting-role recommendation.")
+        evidence.append(f"Depth chart: No. {order}")
+    else:
+        role_read="Sleeper does not currently provide a usable depth-chart order for this player."
+        why.append("There is no reliable depth-chart order in the current Sleeper metadata, so the recommendation leans on market and news signals instead.")
+
+    if injured_ahead:
+        names=[]
+        for q in injured_ahead[:2]:
+            qn=player_name(q);qs=q.get("injury_status") or q.get("status") or "unavailable"
+            names.append(f"{qn} ({qs})")
+        why.insert(0,f"The clearest opportunity catalyst is ahead of him on the depth chart: {', '.join(names)} currently carries an availability/injury flag.")
+        evidence.append("Injury-created opportunity")
+    elif ahead:
+        lead=player_name(ahead[0])
+        why.append(f"No injury flag is currently visible on the player immediately ahead of him ({lead}); the upside therefore depends on earning more work rather than simply inheriting a vacated job.")
+        evidence.append(f"Competition: {lead}")
+    elif order==1:
+        why.append("There is no same-position player currently listed ahead of him in Sleeper's depth-chart metadata.")
+
+    if p.get("injury_status"):
+        why.append(f"Important counter-signal: the sleeper himself is currently designated {p.get('injury_status')}, so acquisition cost should account for availability risk.")
+        evidence.append(f"Player status: {p.get('injury_status')}")
+
+    if adds>=500:
+        why.append(f"Sleeper shows {adds:,} adds in the current trending window — strong market confirmation, but the add count is supporting evidence rather than the reason by itself.")
+        evidence.append(f"{adds:,} recent adds")
+    elif adds>=100:
+        why.append(f"Sleeper shows {adds:,} recent adds, enough to confirm that managers are reacting to the role/news catalyst.")
+        evidence.append(f"{adds:,} recent adds")
+    elif adds>0:
+        why.append(f"Sleeper shows {adds:,} recent adds; interest is rising but has not reached full breakout-chase levels.")
+        evidence.append(f"{adds:,} recent adds")
+    else:
+        why.append("There is no meaningful current Sleeper add spike, so this is a watch-list/value case rather than a market-confirmed breakout.")
+
+    catalyst_type="Role/market"
+    if latest:
+        title=latest["title"]
+        blob=title.lower()
+        if any(k in blob for k in ("injur","out ","ir ","sidelined","miss")):catalyst_type="Injury/news"
+        elif any(k in blob for k in ("start","starter","depth","role","snap","target","touch")):catalyst_type="Role/news"
+        elif any(k in blob for k in ("trade","sign","waiv","release")):catalyst_type="Transaction/news"
+        why.append(f"Latest matched report: “{title}” ({latest['source']}).")
+        evidence.append(f"News catalyst: {catalyst_type}")
+
+    a=analytics or {}
+    proj=a.get("projected_ppg");last=a.get("last_year_ppg")
     if proj is not None and last is not None:
         delta=round(proj-last,1)
-        if delta>=1: why.append(f"The production model rises from {last} to {proj} PPG.")
-        elif delta<=-1: why.append(f"The historical model is cautious ({proj} PPG), so this is a role/price sleeper rather than a pure projection breakout.")
-        else: why.append(f"The model is stable around {proj} PPG, making price and role the main upside levers.")
-    if a.get("analysis"): why.append(a["analysis"])
-    upside_map={
-        "RB":"A jump in touches, goal-line work or receiving usage can move him quickly into RB2/FLEX territory.",
-        "WR":"A target-share increase can create weekly FLEX/WR2 value, especially if route participation rises.",
-        "TE":"TE is shallow enough that a moderate target and red-zone jump can create a weekly positional advantage.",
-        "QB":"Rushing volume or a touchdown-rate jump can turn a late QB into a weekly starter."
-    }
-    try: sr=float(player.get("search_rank") or 9999)
-    except: sr=9999
-    if sr<=100: acquire="Draft: roughly Rounds 9-11 if the room is getting aggressive; do not count on waivers."
-    elif sr<=180: acquire="Draft: roughly Rounds 12-15 as an upside bench stash."
-    else: acquire="Waivers: leave him on the watch list in shallow leagues and react to Week 1 usage."
-    return {"why":" ".join(why),"upside":upside_map.get(pos,"Role growth creates the upside case."),"acquisition":acquire}
+        if delta>=1:why.append(f"The production model also improves from {last} to {proj} PPG, which supports the opportunity thesis.")
+        elif delta<=-1:why.append(f"The historical model is more cautious at {proj} PPG versus {last} last year; treat this as an opportunity/price play, not a proven production breakout.")
 
-def enrich_sleepers(items,analytics):
+    upside_parts=[]
+    if injured_ahead:
+        upside_parts.append("If the unavailable player ahead of him misses time, the path to snaps/touches is materially cleaner.")
+    if order==1:
+        upside_parts.append("Being listed first on the depth chart gives him a direct path to usable weekly volume if the role carries into games.")
+    elif order<99:
+        upside_parts.append(f"At depth-chart No. {order}, the ceiling depends on moving up the rotation or earning a package/committee role.")
+    if pos=="RB":upside_parts.append("For RBs, touch share, passing-down work and goal-line snaps are the fastest route to FLEX/RB2 value.")
+    elif pos=="WR":upside_parts.append("For WRs, route participation and target share matter more than raw camp buzz; a move into two-WR sets would be the strongest confirmation.")
+    elif pos=="TE":upside_parts.append("For TEs, route rate plus red-zone targets can create a usable weekly edge quickly because the position is shallow.")
+    elif pos=="QB":upside_parts.append("For QBs, a confirmed starting job plus rushing usage is the clearest route to a fantasy breakout.")
+
+    try:sr=float(player.get("search_rank") or 9999)
+    except:sr=9999
+    if injured_ahead or order==1:
+        if sr<=120:acquire="Draft/waiver action: treat him as an active target now; the role evidence is stronger than a generic stash case."
+        else:acquire="Draft/waiver action: prioritize him as an upside bench stash before the role becomes fully priced in."
+    elif adds>=500:
+        acquire="Draft/waiver action: the market is moving fast, but do not chase blindly; verify the depth-chart/news catalyst before paying a premium."
+    elif sr<=180:
+        acquire="Draft: late-round upside stash. On waivers, add if your bench has a low-ceiling player and you can wait for role confirmation."
+    else:
+        acquire="Watch list: monitor next depth-chart/practice/game-usage update before spending meaningful FAAB or draft capital."
+
+    return {
+        "why":" ".join(why),
+        "role_read":role_read,
+        "upside":" ".join(upside_parts),
+        "acquisition":acquire,
+        "evidence":evidence,
+        "catalyst_type":catalyst_type,
+        "latest_news":latest,
+        "players_ahead":[{"name":player_name(q),"status":q.get("injury_status") or q.get("status") or ""} for q in ahead[:3]],
+        "injured_ahead":[{"name":player_name(q),"status":q.get("injury_status") or q.get("status") or ""} for q in injured_ahead[:3]]
+    }
+
+def enrich_sleepers(items,analytics,with_news=False):
+    players=sleeper_players()
+    news_by_name={}
+    if with_news:
+        targets=[p for p in items[:TOP_N] if int(p.get("adds") or 0)>0][:20]
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            futures={ex.submit(player_news_context,p["name"],"fantasy",5):p["name"] for p in targets}
+            for fut in as_completed(futures):
+                try:news_by_name[futures[fut]]=fut.result()
+                except Exception:news_by_name[futures[fut]]=[]
     out=[]
     for p in items[:TOP_N]:
-        q=dict(p); q.update(sleeper_breakout(q,analytics.get(norm_name(q["name"]))))
+        q=dict(p)
+        q.update(sleeper_breakout(
+            q,analytics.get(norm_name(q["name"])),
+            news_by_name.get(q["name"],[]),players
+        ))
         out.append(q)
     return out
+
 
 def rank_metric(rows,key,higher=True):
     vals=[(r["team"],r[key]) for r in rows if r.get(key) is not None]
@@ -1024,7 +1409,7 @@ def health():
     return jsonify({
         "status": "ok",
         "app": "Fantasy Command Center",
-        "version": "8.2-espn-private-sync",
+        "version": "8.3-context-engine",
         "season": SEASON,
         "time": int(time.time())
     })
@@ -1627,7 +2012,7 @@ def dashboard():
     data=fallback()
     ranks=rankings(scoring)
     # Keep first paint fast. Heavy analytics, injury files, and team data are lazy.
-    sleepers=enrich_sleepers(sleeper_candidates(ranks),{})
+    sleepers=enrich_sleepers(sleeper_candidates(ranks),{},with_news=False)
     data.update({
         "rankings":ranks,
         "analytics":{},
@@ -1661,6 +2046,19 @@ def player_analysis_api():
     if result is None:
         return jsonify({"error":"Historical production data unavailable for this player"}),404
     return jsonify(result)
+
+@app.get("/api/sleeper-radar")
+def sleeper_radar_api():
+    scoring=request.args.get("scoring","PPR").upper()
+    if scoring not in SCORING:scoring="PPR"
+    ranks=rankings(scoring)
+    items=sleeper_candidates(ranks)
+    enriched=enrich_sleepers(items,{},with_news=True)
+    return jsonify({
+        "items":enriched,
+        "sources":dict(SOURCE_STATE),
+        "analysis_note":"Catalysts use current Sleeper depth-chart/injury metadata, recent add velocity and matched recent news. The app explicitly says when no injury or starting-role catalyst is verified."
+    })
 
 @app.get("/api/injury-risk")
 def injury_risk_api():
