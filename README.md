@@ -379,3 +379,29 @@ nflverse weekly player-stat rows. It is not labeled as an official inactive-list
 count.
 
 The old "0 weeks Out" display has been removed.
+
+
+## V8.4 — Analyst Engine + Render Stability
+
+### Render/API stability
+- Initial dashboard no longer builds Sleeper Radar analysis that the UI does not display.
+- Rankings are cached in-process per scoring format.
+- Sleeper player metadata uses stale-safe disk caching.
+- Dashboard and Team Power routes degrade to bundled JSON instead of returning an unhandled empty/500 response.
+- Browser API calls read response text first, report HTTP/empty-response errors clearly, and retry once.
+- The client wakes `/health` before the first heavy dashboard request.
+- Gunicorn request timeout increased from 90 to 180 seconds for Render cold-cache requests.
+
+### Sleeper Radar analyst engine
+- Final results are deduplicated by normalized player name.
+- Players with release/waiver/season-ending signals are removed from the best-sleeper board.
+- Players who themselves are on IR/Out are removed unless current reporting contains a return signal.
+- Each candidate receives an analyst score, confidence and verdict: STRONG TARGET, TARGET, STASH, WATCH or FADE.
+- The written report now leads with the football reason: starting role, depth-chart position, injury-created opportunity, or lack of a verified role.
+- Add momentum is treated as market confirmation, not as the explanation itself.
+- Each card includes the thesis, role competition, evidence, what has to happen, what could make the analyst wrong, and an acquisition recommendation.
+
+### Injury analyst view
+- Adds plain-language current injury description.
+- Adds explicit fantasy impact opinion alongside the return outlook.
+- Keeps historical report-window and estimated missed-game evidence separate from current injury reporting.

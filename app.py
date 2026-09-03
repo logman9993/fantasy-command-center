@@ -222,13 +222,14 @@ def load_team_weekly_stats(year):
         source_fail("team_stats", f"nflverse failed: {e}")
         return []
 
+@lru_cache(maxsize=1)
 def sleeper_players():
     try:
-        data = cached_json(
-            "sleeper_players", 86400,
-            lambda: http_json("https://api.sleeper.app/v1/players/nfl?active=true")
+        data,meta = stale_cached_json(
+            "sleeper_players", 86400, 86400*7,
+            lambda: http_json("https://api.sleeper.app/v1/players/nfl?active=true",timeout=20)
         )
-        source_ok("sleeper_players", f"{len(data):,} active-player records")
+        source_ok("sleeper_players", f"{len(data):,} active-player records" + (" • stale-safe cache" if meta.get("stale") else ""))
         return data
     except Exception as e:
         source_fail("sleeper_players", e)
@@ -236,11 +237,11 @@ def sleeper_players():
 
 def sleeper_trending():
     try:
-        data = cached_json(
-            "sleeper_trending", 900,
-            lambda: http_json("https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=250")
+        data,meta = stale_cached_json(
+            "sleeper_trending", 900, 86400,
+            lambda: http_json("https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=250",timeout=15)
         )
-        source_ok("sleeper_trending", f"{len(data)} trending add records")
+        source_ok("sleeper_trending", f"{len(data)} trending add records" + (" • stale-safe cache" if meta.get("stale") else ""))
         return data
     except Exception as e:
         source_fail("sleeper_trending", e)
@@ -487,6 +488,7 @@ def build_model_rankings(scoring):
     result["DST"]=dst_fallback([],TOP_N)
     return result
 
+@lru_cache(maxsize=3)
 def rankings(scoring):
     result={}
     model=None
@@ -785,9 +787,27 @@ def recent_news_summary(items):
     a=items[0]
     return {
         "title":a.get("title") or "",
+        "summary":a.get("summary") or "",
         "source":a.get("source") or "News",
         "url":a.get("url") or "",
         "published_ts":a.get("published_ts") or 0
+    }
+
+def news_signal(items):
+    blob=" ".join((a.get("title","")+" "+a.get("summary","")) for a in (items or [])[:4]).lower()
+    negative=[
+        "released", "waived", "injury settlement", "out for the season", "season-ending",
+        "season ending", "placed on injured reserve", "retired", "suspended indefinitely"
+    ]
+    positive=[
+        "named starter", "will start", "expected to start", "starting role", "first-team",
+        "first team", "expanded role", "larger role", "more touches", "more targets",
+        "increased workload", "promoted", "takes over", "lead back", "starting running back"
+    ]
+    return {
+        "negative":next((x for x in negative if x in blob),None),
+        "positive":next((x for x in positive if x in blob),None),
+        "blob":blob
     }
 
 def peer_role_context(player,players):
@@ -922,25 +942,34 @@ def current_injury_outlook(player,news):
     blob=" ".join((a.get("title","")+" "+a.get("summary","")) for a in news[:3])
     timeline=extract_timeline_signal(blob)
     specific=extract_specific_injury(blob,player.get("injury_body_part") or "")
+    diagnosis,description=injury_description(specific)
     if timeline:
         outlook=timeline
     elif status.lower() in ("ir","injured reserve","injury_reserve"):
-        outlook="Currently designated for injured reserve in Sleeper metadata. No exact return date is inferred without a current team/reporting timetable."
+        outlook="Currently designated for injured reserve. I would not assume an exact return week until the team or a reliable reporter gives a timetable."
     elif status.lower()=="out":
-        outlook="Currently listed Out. Treat the near-term availability as negative until practice participation or team reporting improves."
+        outlook="Currently listed Out. The near-term availability signal is negative until practice participation or team reporting improves."
     elif status.lower()=="doubtful":
-        outlook="Currently Doubtful; near-term availability is poor unless the designation changes."
+        outlook="Currently Doubtful; I would plan as if he will miss the upcoming game unless the designation materially improves."
     elif status.lower()=="questionable":
-        outlook="Currently Questionable. Practice participation and the final game-status report are the key next signals."
+        outlook="Currently Questionable. The next meaningful signals are practice participation and the final game-status report."
     elif status:
-        outlook=f"Current Sleeper designation is {status}. No reliable return timetable was found in the matched news, so the app does not invent one."
+        outlook=f"Current Sleeper designation is {status}. No trustworthy return timetable was found, so the app does not invent one."
     else:
-        outlook="No current Sleeper injury designation is present."
-    if practice:
-        outlook+=f" Latest practice participation: {practice}."
-    if start:
-        outlook+=f" Sleeper injury start date: {start}."
-    return specific,outlook
+        outlook="No current Sleeper injury designation is present; historical injuries are background risk rather than evidence he is currently unavailable."
+    if practice:outlook+=f" Latest practice participation: {practice}."
+    if start:outlook+=f" Sleeper injury start date: {start}."
+
+    low=status.lower()
+    if low in ("ir","injured reserve","injury_reserve","out"):
+        fantasy_impact="My fantasy read: downgrade him until there is a verified return window. Replacement-level production and roster flexibility matter more than name value while he is unavailable."
+    elif low in ("doubtful","questionable"):
+        fantasy_impact="My fantasy read: keep a contingency plan ready. If practice participation improves, the risk can fall quickly; if he remains limited or absent, I would lower weekly expectations."
+    elif status:
+        fantasy_impact="My fantasy read: treat the designation as a real risk flag, but let practice trend and role reports determine how aggressively to downgrade him."
+    else:
+        fantasy_impact="My fantasy read: there is no current designation, so I would not penalize him heavily for old injuries alone; use the history mainly to understand recurrence/availability risk."
+    return diagnosis,description,outlook,fantasy_impact
 
 def draftable_names(rankings_data):
     return {norm_name(p["name"]) for pos in DRAFT_POSITIONS for p in rankings_data.get(pos,[])[:TOP_N]}
@@ -995,7 +1024,7 @@ def injury_risk(rankings_data):
     candidates=[]
     for score,name,p,episodes,reasons in base:
         news=news_by_name.get(name,[])
-        diagnosis,outlook=current_injury_outlook(p,news)
+        diagnosis,current_description,outlook,fantasy_impact=current_injury_outlook(p,news)
         latest=recent_news_summary(news)
         hist_missed=sum((x["games_missed_estimate"] or 0) for x in episodes if x["games_missed_estimate"] is not None)
         analysis=[]
@@ -1016,7 +1045,9 @@ def injury_risk(rankings_data):
             "practice_participation":p.get("practice_participation") or "",
             "injury_start_date":p.get("injury_start_date"),
             "current_diagnosis":diagnosis,
+            "current_description":current_description,
             "return_outlook":outlook,
+            "fantasy_impact":fantasy_impact,
             "latest_news":latest,
             "recent_injuries":episodes,
             "analysis":" ".join(analysis),
@@ -1025,7 +1056,7 @@ def injury_risk(rankings_data):
     return candidates
 
 
-def sleeper_candidates(rankings_data):
+def sleeper_candidates(rankings_data,limit=60):
     players=sleeper_players();trend=sleeper_trending()
     drafted=draftable_names(rankings_data)
     result=[];seen=set()
@@ -1043,8 +1074,8 @@ def sleeper_candidates(rankings_data):
             "depth_chart_position":p.get("depth_chart_position"),
             "injury_status":p.get("injury_status"),"reason":"Trending on Sleeper"
         })
-        if len(result)>=TOP_N:break
-    if len(result)<TOP_N:
+        if len(result)>=limit:break
+    if len(result)<limit:
         vals=[]
         for pid,p in players.items():
             pos=(p.get("position") or "").upper();name=player_name(p);n=norm_name(name)
@@ -1061,8 +1092,8 @@ def sleeper_candidates(rankings_data):
                 "depth_chart_position":p.get("depth_chart_position"),
                 "injury_status":p.get("injury_status"),"reason":"Current rostered upside candidate"
             })
-            if len(result)>=TOP_N:break
-    return result[:TOP_N]
+            if len(result)>=limit:break
+    return result[:limit]
 
 def sleeper_breakout(player,analytics=None,news=None,players=None):
     players=players or sleeper_players()
@@ -1070,128 +1101,176 @@ def sleeper_breakout(player,analytics=None,news=None,players=None):
     p=players.get(str(player.get("player_id")),{})
     if not p:
         p=next((x for x in players.values() if norm_name(player_name(x))==norm_name(player.get("name"))),{})
-    pos=(player.get("position") or "").upper();adds=int(player.get("adds") or 0)
+    name=player.get("name") or player_name(p)
+    team=player.get("team") or p.get("team") or ""
+    pos=(player.get("position") or p.get("position") or "").upper()
+    adds=int(player.get("adds") or 0)
     order,ahead,injured_ahead=peer_role_context(p,players) if p else (99,[],[])
     latest=recent_news_summary(news)
+    sig=news_signal(news)
+    own_status=str(p.get("injury_status") or "").strip()
+    roster_status=str(p.get("status") or "").strip()
+    news_blob=sig.get("blob") or ""
+    return_signal=any(x in news_blob for x in ("activated", "cleared to return", "expected to return", "returns to practice", "designated to return"))
+    own_severe=own_status.lower() in ("ir","injured reserve","injury_reserve","out")
+
+    score=44.0
     evidence=[]
-    why=[]
-    role_read=""
-
-    if order<99:
-        if order==1:
-            role_read=f"Sleeper currently lists him first at {p.get('depth_chart_position') or pos} on the {p.get('team')} depth chart."
-            why.append("The role signal is already meaningful: he is listed first on the current Sleeper depth chart.")
-        else:
-            role_read=f"Sleeper lists him No. {order} at {p.get('depth_chart_position') or pos} for {p.get('team')}."
-            why.append(f"He is currently No. {order} on the Sleeper depth chart, so this is not automatically a starting-role recommendation.")
-        evidence.append(f"Depth chart: No. {order}")
-    else:
-        role_read="Sleeper does not currently provide a usable depth-chart order for this player."
-        why.append("There is no reliable depth-chart order in the current Sleeper metadata, so the recommendation leans on market and news signals instead.")
-
-    if injured_ahead:
-        names=[]
-        for q in injured_ahead[:2]:
-            qn=player_name(q);qs=q.get("injury_status") or q.get("status") or "unavailable"
-            names.append(f"{qn} ({qs})")
-        why.insert(0,f"The clearest opportunity catalyst is ahead of him on the depth chart: {', '.join(names)} currently carries an availability/injury flag.")
-        evidence.append("Injury-created opportunity")
-    elif ahead:
-        lead=player_name(ahead[0])
-        why.append(f"No injury flag is currently visible on the player immediately ahead of him ({lead}); the upside therefore depends on earning more work rather than simply inheriting a vacated job.")
-        evidence.append(f"Competition: {lead}")
-    elif order==1:
-        why.append("There is no same-position player currently listed ahead of him in Sleeper's depth-chart metadata.")
-
-    if p.get("injury_status"):
-        why.append(f"Important counter-signal: the sleeper himself is currently designated {p.get('injury_status')}, so acquisition cost should account for availability risk.")
-        evidence.append(f"Player status: {p.get('injury_status')}")
-
-    if adds>=500:
-        why.append(f"Sleeper shows {adds:,} adds in the current trending window — strong market confirmation, but the add count is supporting evidence rather than the reason by itself.")
-        evidence.append(f"{adds:,} recent adds")
-    elif adds>=100:
-        why.append(f"Sleeper shows {adds:,} recent adds, enough to confirm that managers are reacting to the role/news catalyst.")
-        evidence.append(f"{adds:,} recent adds")
-    elif adds>0:
-        why.append(f"Sleeper shows {adds:,} recent adds; interest is rising but has not reached full breakout-chase levels.")
-        evidence.append(f"{adds:,} recent adds")
-    else:
-        why.append("There is no meaningful current Sleeper add spike, so this is a watch-list/value case rather than a market-confirmed breakout.")
-
-    catalyst_type="Role/market"
-    if latest:
-        title=latest["title"]
-        blob=title.lower()
-        if any(k in blob for k in ("injur","out ","ir ","sidelined","miss")):catalyst_type="Injury/news"
-        elif any(k in blob for k in ("start","starter","depth","role","snap","target","touch")):catalyst_type="Role/news"
-        elif any(k in blob for k in ("trade","sign","waiv","release")):catalyst_type="Transaction/news"
-        why.append(f"Latest matched report: “{title}” ({latest['source']}).")
-        evidence.append(f"News catalyst: {catalyst_type}")
-
-    a=analytics or {}
-    proj=a.get("projected_ppg");last=a.get("last_year_ppg")
-    if proj is not None and last is not None:
-        delta=round(proj-last,1)
-        if delta>=1:why.append(f"The production model also improves from {last} to {proj} PPG, which supports the opportunity thesis.")
-        elif delta<=-1:why.append(f"The historical model is more cautious at {proj} PPG versus {last} last year; treat this as an opportunity/price play, not a proven production breakout.")
-
-    upside_parts=[]
-    if injured_ahead:
-        upside_parts.append("If the unavailable player ahead of him misses time, the path to snaps/touches is materially cleaner.")
     if order==1:
-        upside_parts.append("Being listed first on the depth chart gives him a direct path to usable weekly volume if the role carries into games.")
+        score+=18;evidence.append("Listed first on depth chart")
+    elif order==2:
+        score+=9;evidence.append("No. 2 on depth chart")
     elif order<99:
-        upside_parts.append(f"At depth-chart No. {order}, the ceiling depends on moving up the rotation or earning a package/committee role.")
-    if pos=="RB":upside_parts.append("For RBs, touch share, passing-down work and goal-line snaps are the fastest route to FLEX/RB2 value.")
-    elif pos=="WR":upside_parts.append("For WRs, route participation and target share matter more than raw camp buzz; a move into two-WR sets would be the strongest confirmation.")
-    elif pos=="TE":upside_parts.append("For TEs, route rate plus red-zone targets can create a usable weekly edge quickly because the position is shallow.")
-    elif pos=="QB":upside_parts.append("For QBs, a confirmed starting job plus rushing usage is the clearest route to a fantasy breakout.")
+        score+=max(0,6-(order-2)*2);evidence.append(f"Depth chart No. {order}")
+    if injured_ahead:
+        score+=22;evidence.append("Injury-created opportunity")
+    if adds>=1000:score+=11
+    elif adds>=500:score+=8
+    elif adds>=100:score+=5
+    elif adds>0:score+=2
+    if adds:evidence.append(f"{adds:,} recent Sleeper adds")
+    if sig["positive"]:
+        score+=12;evidence.append("Positive role report")
+    if own_status.lower() in ("ir","injured reserve","injury_reserve","out"):
+        score-=30;evidence.append(f"Own status: {own_status}")
+    elif own_status:
+        score-=8;evidence.append(f"Own status: {own_status}")
+    if sig["negative"]:
+        score-=45;evidence.append(f"Negative news: {sig['negative']}")
+    if roster_status and roster_status.lower() not in ("active",""):
+        score-=20;evidence.append(f"Roster status: {roster_status}")
+    score=max(0,min(100,round(score,1)))
 
-    try:sr=float(player.get("search_rank") or 9999)
-    except:sr=9999
-    if injured_ahead or order==1:
-        if sr<=120:acquire="Draft/waiver action: treat him as an active target now; the role evidence is stronger than a generic stash case."
-        else:acquire="Draft/waiver action: prioritize him as an upside bench stash before the role becomes fully priced in."
-    elif adds>=500:
-        acquire="Draft/waiver action: the market is moving fast, but do not chase blindly; verify the depth-chart/news catalyst before paying a premium."
-    elif sr<=180:
-        acquire="Draft: late-round upside stash. On waivers, add if your bench has a low-ceiling player and you can wait for role confirmation."
+    self_disqualify=("own severe injury without a verified return signal" if own_severe and not return_signal else None)
+    if sig["negative"] or self_disqualify or score<35:
+        verdict="FADE"
+    elif score>=82:
+        verdict="STRONG TARGET"
+    elif score>=70:
+        verdict="TARGET"
+    elif score>=58:
+        verdict="STASH"
     else:
-        acquire="Watch list: monitor next depth-chart/practice/game-usage update before spending meaningful FAAB or draft capital."
+        verdict="WATCH"
+
+    # Sports-analyst style thesis: lead with the actual football reason, then
+    # market confirmation, then explicitly state what could invalidate it.
+    if injured_ahead:
+        lead=injured_ahead[0]
+        lead_name=player_name(lead)
+        lead_status=lead.get("injury_status") or lead.get("status") or "unavailable"
+        thesis=(
+            f"I like {name} because there is a concrete path to more {('touches' if pos=='RB' else 'routes/targets' if pos in ('WR','TE') else 'snaps')}: "
+            f"{lead_name}, who is ahead of him for {team}, is currently flagged {lead_status}. "
+        )
+        if order==2:
+            thesis+=f"{name} is already listed No. 2 on the depth chart, so he is the most direct beneficiary if that absence carries into games. "
+        else:
+            thesis+=f"He is listed No. {order if order<99 else '?'} on the depth chart, so the injury helps but does not guarantee he inherits the full job. "
+    elif order==1:
+        thesis=(
+            f"My interest in {name} is role-driven: Sleeper currently lists him first at {p.get('depth_chart_position') or pos} for {team}. "
+            "That is more important to me than the trending count because starting position creates the clearest path to repeatable fantasy volume. "
+        )
+    elif order<99:
+        lead=player_name(ahead[0]) if ahead else "the current starter"
+        thesis=(
+            f"I view {name} as a speculative upside play, not a confirmed starter. He sits No. {order} on the {team} depth chart behind {lead}. "
+            "The bet is that his role expands through performance, packages or an injury ahead of him. "
+        )
+    else:
+        thesis=(
+            f"I do not have a verified starting-role signal for {name} yet. The case is based on market movement and recent reporting, so I would treat him as a watch-list player until usage confirms the thesis. "
+        )
+
+    if sig["positive"]:
+        thesis+=f"Recent reporting contains a positive role signal ({sig['positive']}), which strengthens the case. "
+    if latest:
+        thesis+=f"The latest matched report is “{latest['title']}” ({latest['source']}). "
+    if adds>=500:
+        thesis+=f"The {adds:,} recent Sleeper adds tell me other managers are reacting too, but I use that as confirmation—not the reason to buy. "
+    elif adds>0:
+        thesis+=f"Sleeper has logged {adds:,} recent adds, which is modest market confirmation. "
+    if own_status:
+        thesis+=f"The main caution is his own {own_status} designation. "
+    if sig["negative"]:
+        thesis+=f"More importantly, current reporting contains a negative roster/availability signal ({sig['negative']}), so I would not chase the trend. "
+
+    if pos=="RB":
+        upside="For this RB thesis to pay off, I want to see him earn meaningful early-down touches plus either passing-down or goal-line work; pure backup snaps are not enough."
+    elif pos=="WR":
+        upside="For this WR thesis to pay off, I want route participation in two- and three-WR sets and a real target share; camp buzz without routes is not enough."
+    elif pos=="TE":
+        upside="For this TE thesis to pay off, I want a strong route rate and red-zone involvement; blocking-only snaps do not create reliable fantasy value."
+    else:
+        upside="For this QB thesis to pay off, he needs a confirmed starting job and either rushing production or enough passing volume to create weekly ceiling."
+
+    if injured_ahead:
+        risk=f"The biggest risk is that {player_name(injured_ahead[0])} returns quickly or the team uses a committee instead of giving {name} the vacated work."
+    elif order>1 and order<99:
+        risk=f"The biggest risk is simple: {name} is still behind {player_name(ahead[0]) if ahead else 'another player'} and may never earn enough weekly volume."
+    elif sig["negative"]:
+        risk="The current news signal undermines the roster opportunity entirely; the trend may be stale or reactionary rather than actionable."
+    else:
+        risk="The biggest risk is that the projected role never shows up in actual snaps, routes, targets or touches."
+
+    if verdict in ("STRONG TARGET","TARGET"):
+        acquisition="My move: actively target him at a reasonable late-round/bench price before the role is fully reflected in ADP or waivers."
+    elif verdict=="STASH":
+        acquisition="My move: stash him if your bench has a low-ceiling player, but do not cut a proven weekly contributor for him yet."
+    elif verdict=="WATCH":
+        acquisition="My move: watch the next depth-chart, practice and game-usage update before spending meaningful draft capital or FAAB."
+    else:
+        acquisition="My move: fade the current trend until a new roster/health development changes the evidence."
+
+    role_read=(
+        f"{name} is listed No. {order} at {p.get('depth_chart_position') or pos} for {team}."
+        if order<99 else
+        f"No reliable current Sleeper depth-chart order is available for {name}."
+    )
 
     return {
-        "why":" ".join(why),
-        "role_read":role_read,
-        "upside":" ".join(upside_parts),
-        "acquisition":acquire,
-        "evidence":evidence,
-        "catalyst_type":catalyst_type,
-        "latest_news":latest,
+        "why":thesis.strip(),"role_read":role_read,"upside":upside,
+        "risk_to_thesis":risk,"acquisition":acquisition,"evidence":evidence,
+        "catalyst_type":"Injury opportunity" if injured_ahead else "Starting role" if order==1 else "Role/news",
+        "latest_news":latest,"analyst_score":score,"verdict":verdict,
+        "confidence":"High" if score>=82 and (injured_ahead or sig["positive"]) else "Medium" if score>=58 else "Low",
         "players_ahead":[{"name":player_name(q),"status":q.get("injury_status") or q.get("status") or ""} for q in ahead[:3]],
-        "injured_ahead":[{"name":player_name(q),"status":q.get("injury_status") or q.get("status") or ""} for q in injured_ahead[:3]]
+        "injured_ahead":[{"name":player_name(q),"status":q.get("injury_status") or q.get("status") or ""} for q in injured_ahead[:3]],
+        "disqualifying_signal":sig["negative"] or self_disqualify
     }
 
 def enrich_sleepers(items,analytics,with_news=False):
     players=sleeper_players()
+    # Always dedupe again at the final presentation grain. This protects the UI
+    # from provider ID aliases and stale duplicate records.
+    dedup=[];seen=set()
+    for p in items:
+        n=norm_name(p.get("name"))
+        if not n or n in seen:continue
+        seen.add(n);dedup.append(p)
+
     news_by_name={}
-    if with_news:
-        targets=[p for p in items[:TOP_N] if int(p.get("adds") or 0)>0][:20]
+    targets=dedup[:50] if with_news else []
+    if targets:
         with ThreadPoolExecutor(max_workers=8) as ex:
             futures={ex.submit(player_news_context,p["name"],"fantasy",5):p["name"] for p in targets}
             for fut in as_completed(futures):
                 try:news_by_name[futures[fut]]=fut.result()
                 except Exception:news_by_name[futures[fut]]=[]
-    out=[]
-    for p in items[:TOP_N]:
-        q=dict(p)
-        q.update(sleeper_breakout(
-            q,analytics.get(norm_name(q["name"])),
-            news_by_name.get(q["name"],[]),players
-        ))
-        out.append(q)
-    return out
 
+    out=[]
+    for p in dedup:
+        q=dict(p)
+        q.update(sleeper_breakout(q,analytics.get(norm_name(q["name"])),news_by_name.get(q["name"],[]),players))
+        # A player who is released/waived/season-ending or whose model verdict is
+        # FADE should not occupy a "best sleeper" slot merely because an old
+        # trending record is still present.
+        if q.get("disqualifying_signal") or q.get("verdict")=="FADE":
+            continue
+        out.append(q)
+    out.sort(key=lambda x:(x.get("analyst_score",0),x.get("adds",0)),reverse=True)
+    return out[:TOP_N]
 
 def rank_metric(rows,key,higher=True):
     vals=[(r["team"],r[key]) for r in rows if r.get(key) is not None]
@@ -1409,7 +1488,7 @@ def health():
     return jsonify({
         "status": "ok",
         "app": "Fantasy Command Center",
-        "version": "8.3-context-engine",
+        "version": "8.4-analyst-stability",
         "season": SEASON,
         "time": int(time.time())
     })
@@ -2009,30 +2088,40 @@ def dashboard():
     SOURCE_STATE.clear()
     scoring=request.args.get("scoring","PPR").upper()
     if scoring not in SCORING: scoring="PPR"
-    data=fallback()
-    ranks=rankings(scoring)
-    # Keep first paint fast. Heavy analytics, injury files, and team data are lazy.
-    sleepers=enrich_sleepers(sleeper_candidates(ranks),{},with_news=False)
-    data.update({
-        "rankings":ranks,
-        "analytics":{},
-        "sleepers":sleepers,
-        "injury_risk":[],
-        "offenses":[],
-        "defenses":[],
-        "meta":{
-            "season":SEASON,"prior_season":PRIOR_SEASON,"scoring":scoring,
-            "fantasypros_live":bool(FANTASYPROS_KEY),
-            "analytics_live":True,
-            "projection_model":"5-season recency-weighted PPG + capped trend adjustment",
-            "injury_history_through":2024,
-            "progressive_loading":True,
-            "source_status":dict(SOURCE_STATE),
-            "counts":{p:len(ranks.get(p,[])) for p in ALL_POSITIONS},
-            "updated":int(time.time())
-        }
-    })
-    return jsonify(data)
+    try:
+        data=fallback()
+        ranks=rankings(scoring)
+        data.update({
+            "rankings":ranks,"analytics":{},"sleepers":[],
+            "injury_risk":[],"offenses":[],"defenses":[],
+            "meta":{
+                "season":SEASON,"prior_season":PRIOR_SEASON,"scoring":scoring,
+                "fantasypros_live":bool(FANTASYPROS_KEY),"analytics_live":True,
+                "projection_model":"5-season recency-weighted PPG + capped trend adjustment",
+                "injury_history_through":2024,"progressive_loading":True,
+                "source_status":dict(SOURCE_STATE),
+                "counts":{p:len(ranks.get(p,[])) for p in ALL_POSITIONS},
+                "updated":int(time.time()),"degraded":False
+            }
+        })
+        return jsonify(data)
+    except Exception as e:
+        source_fail("dashboard",e)
+        data=fallback()
+        ranks=data.get("rankings",{})
+        data.update({
+            "analytics":{},"sleepers":data.get("sleepers",[]),
+            "injury_risk":[],"offenses":[],"defenses":[],
+            "meta":{
+                "season":SEASON,"prior_season":PRIOR_SEASON,"scoring":scoring,
+                "fantasypros_live":False,"analytics_live":False,
+                "progressive_loading":True,"source_status":dict(SOURCE_STATE),
+                "counts":{p:len(ranks.get(p,[])) for p in ALL_POSITIONS},
+                "updated":int(time.time()),"degraded":True,
+                "degraded_reason":str(e)[:220]
+            }
+        })
+        return jsonify(data)
 
 @app.get("/api/player-analysis")
 def player_analysis_api():
@@ -2051,14 +2140,17 @@ def player_analysis_api():
 def sleeper_radar_api():
     scoring=request.args.get("scoring","PPR").upper()
     if scoring not in SCORING:scoring="PPR"
-    ranks=rankings(scoring)
-    items=sleeper_candidates(ranks)
-    enriched=enrich_sleepers(items,{},with_news=True)
-    return jsonify({
-        "items":enriched,
-        "sources":dict(SOURCE_STATE),
-        "analysis_note":"Catalysts use current Sleeper depth-chart/injury metadata, recent add velocity and matched recent news. The app explicitly says when no injury or starting-role catalyst is verified."
-    })
+    try:
+        ranks=rankings(scoring)
+        items=sleeper_candidates(ranks,limit=60)
+        enriched=enrich_sleepers(items,{},with_news=True)
+        return jsonify({
+            "items":enriched,"sources":dict(SOURCE_STATE),
+            "analysis_note":"Each sleeper is ranked by role evidence, depth-chart opportunity, teammate availability, recent news and market confirmation. Duplicate/stale negative records are removed."
+        })
+    except Exception as e:
+        source_fail("sleeper_radar",e)
+        return jsonify({"items":[],"error":"sleeper_radar_unavailable","message":str(e),"sources":dict(SOURCE_STATE)}),503
 
 @app.get("/api/injury-risk")
 def injury_risk_api():
@@ -2217,12 +2309,18 @@ def cached_news_feed(force=False):
 
 @app.get("/api/team-power")
 def team_power_api():
-    offenses,defenses=team_power()
-    return jsonify({
-        "offenses":offenses,
-        "defenses":defenses,
-        "sources":dict(SOURCE_STATE)
-    })
+    try:
+        offenses,defenses=team_power()
+        return jsonify({"offenses":offenses,"defenses":defenses,"sources":dict(SOURCE_STATE),"degraded":False})
+    except Exception as e:
+        source_fail("team_power",e)
+        fb=fallback()
+        offenses=[];defenses=[]
+        for i,x in enumerate(fb.get("offenses",[])[:10],1):
+            q=dict(x);q.setdefault("name",q.get("team",""));q["rank"]=i;q["source"]="bundled emergency fallback";q.setdefault("analysis","Live team sources failed; this is a temporary fallback ordering.");q.setdefault("stats",[]);offenses.append(q)
+        for i,x in enumerate(fb.get("defenses",[])[:10],1):
+            q=dict(x);q.setdefault("name",q.get("team",""));q["rank"]=i;q["source"]="bundled emergency fallback";q.setdefault("analysis","Live team sources failed; this is a temporary fallback ordering.");q.setdefault("stats",[]);defenses.append(q)
+        return jsonify({"offenses":offenses,"defenses":defenses,"sources":dict(SOURCE_STATE),"degraded":True,"message":str(e)[:220]})
 
 @app.get("/api/news")
 def news_api():
