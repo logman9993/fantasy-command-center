@@ -1,3 +1,11 @@
+# V9 beta update
+
+See [V9 release notes](RELEASE_NOTES_V9.md) and [five tester checks](TESTING_V9.md). The Players board remains the landing page. For server saves, configure a persistent `CACHE_DIR` first.
+
+# Fantasy Command Center V8.7
+
+Continues the supplied V8.6 release. See [V8.7 release notes](RELEASE_NOTES_V8.7.md) for current features, validation, and Yahoo limitations.
+
 # Fantasy Command Center V6.1 — Deployment Edition
 
 **Public deployment instructions:** see [`DEPLOYMENT.md`](DEPLOYMENT.md).
@@ -441,3 +449,24 @@ Loaded only when a viewer requests one player's full analysis:
 
 Per-player detail is cached for 30 minutes and can use a last-good cache for
 24 hours if an upstream provider temporarily fails.
+
+## V8.6 — Manual Team, Yahoo OAuth scaffold, richer analysis, historical stat selector
+
+### Manual Team Builder
+League HQ now supports a no-account manual roster workflow. Managers can search the current player universe, add roster players, optionally mark known free agents, configure basic roster slots and league size, then run the same roster-value engine used by connected leagues.
+
+If no manual free-agent pool is supplied, pickup suggestions are explicitly labeled as targets that must be verified for availability. If free agents are marked manually, add/drop advice is restricted to that pool.
+
+### Player stat season selector
+Player analysis now has a separate Stats Season selector. The default is the latest meaningful regular-season dataset available. During preseason, that means the most recent completed season rather than an empty/current-year file. Older seasons remain selectable on demand.
+
+The selected season changes the actual PPG/KPI panel; the forward projection remains based on the completed multi-year model so a tiny in-season sample does not accidentally rewrite the projection.
+
+### Analyst wording
+Player, sleeper and injury narratives now use more player-specific evidence: selected-season production, KPI rankings, depth-chart role, current competition, injury-created opportunity, matched news and recurrence/availability history. The text explicitly distinguishes evidence from projection and calls out what could invalidate a thesis.
+
+### Yahoo
+Yahoo now requires an approved Fantasy Sports API application and OAuth 2.0. V8.6 includes the OAuth connector and team-discovery layer but keeps it disabled until approved credentials are configured. See `YAHOO_SETUP.md`.
+
+### ESPN
+The working v0.2.4 ESPN extension is unchanged. See `ESPN_LINKING_OPTIONS.md` for the alternatives that require explicit approval before implementation.

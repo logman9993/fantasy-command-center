@@ -6,6 +6,7 @@ async function getJson(url,options={}){
   const response=await fetch(url,{
     ...options,
     credentials:"include",
+    signal:AbortSignal.timeout(30000),
     cache:"no-store",
     headers:{
       "Accept":"application/json",
@@ -40,7 +41,7 @@ async function testEspn(){
 }
 
 async function collectSnapshot({leagueId,teamId,season}){
-  await testEspn();
+  if(!/^\d+$/.test(String(leagueId)) || !/^\d+$/.test(String(teamId)) || !/^20\d{2}$/.test(String(season))) throw new Error("Enter numeric league/team IDs and a four-digit season.");
 
   const base=
     `${ESPN_READ}/apis/v3/games/ffl/seasons/${encodeURIComponent(season)}`+
@@ -48,7 +49,7 @@ async function collectSnapshot({leagueId,teamId,season}){
 
   const league=await getJson(
     base+"?view=mSettings&view=mTeam&view=mRoster&view=mMatchup&view=mStandings&view=mStatus"
-  );
+  ).catch(e=>{throw new Error("League roster step: "+e.message)});
 
   if(!Array.isArray(league.teams) || !league.teams.length){
     throw new Error(
@@ -93,6 +94,7 @@ async function collectSnapshot({leagueId,teamId,season}){
 async function analyze(snapshot){
   const response=await fetch(APP_URL+"/api/espn/analyze",{
     method:"POST",
+    signal:AbortSignal.timeout(150000),
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify(snapshot)
   });

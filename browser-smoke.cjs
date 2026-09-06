@@ -1,0 +1,54 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{}),headless:true});
+ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ const players=[{id:'a',name:'Example Receiver',position:'WR',team:'BUF',value:30,rank:1},{id:'b',name:'Example Upgrade',position:'WR',team:'BAL',value:90,rank:2}];
+ let captured=null;
+ const lineup=p=>({total:p.value,unfilled:0,bench:[],lineup:[{slot:'WR',player:p}]});
+ await page.route('**/api/**',async route=>{
+   const url=new URL(route.request().url());let data={};
+   if(['/api/v9/workspace','/api/v9/feedback'].includes(url.pathname))return route.continue();
+   if(url.pathname==='/api/dashboard')data={rankings:{WR:players},meta:{season:2026,prior_season:2025,latest_stats_season:2025,stat_seasons:[2026,2025,2024],counts:{WR:2}}};
+   if(url.pathname==='/api/player-catalog')data={items:players};
+   if(url.pathname==='/api/yahoo/status')data={configured:false,connected:false};
+   if(url.pathname==='/api/v9/decisions'){
+     captured=route.request().postDataJSON();
+     data={lineup:lineup(players[0]),waivers:{before:lineup(players[0]),moves:captured.protected.includes('a')?[]:[{add:players[1],drop:players[0],delta:60,after:lineup(players[1])}],note:'Independent alternatives'},scoring_rules:captured.scoring_rules,generated_at:Date.now()/1000,basis_season:2025,evidence:'Model value is not projected fantasy points.'};
+     if(captured.give)data.trade={you:{before:lineup(players[0]),after:lineup(players[1]),delta:60},opponent:{before:lineup(players[1]),after:lineup(players[0]),delta:-60},note:'No trade submitted.'};
+   }
+   if(url.pathname==='/api/v9/profile')data={name:url.searchParams.get('name'),season:2024,weeks:[{week:1,points:12,targets:8,carries:0},{week:3,points:18,targets:10,carries:0}],note:'Historical results, not projections.',source_url:'https://github.com/nflverse/nflverse-data'};
+   await route.fulfill({json:data});
+ });
+ await page.goto((process.env.BASE_URL || 'http://127.0.0.1:5050'));
+ await page.locator('.navBtn[data-target="league"]').click();await page.locator('#manualOpen').click();
+ await page.locator('[data-manual-add="roster:a"]').click();await page.locator('[data-manual-add="available:b"]').click();
+ for(const pos of ['QB','RB','TE','FLEX','K','DST'])await page.locator('#slot'+pos).fill('0');
+ await page.locator('#slotWR').fill('1');await page.locator('#slotWR').dispatchEvent('change');
+ await page.locator('.navBtn[data-target="decisions"]').click();
+ await page.locator('#v9PassTD').fill('6');await page.locator('#v9Evaluate').click();
+ await page.getByText('Add Example Upgrade / drop Example Receiver', {exact:false}).waitFor();
+ assert.equal(captured.scoring_rules.pass_td,6);
+ await page.locator('[data-v9="protect"]').check();await page.locator('#v9Evaluate').click();
+ await page.getByText('No eligible move improves',{exact:false}).waitFor();
+ await page.locator('#v9OpponentSearch').fill('Upgrade');await page.locator('[data-opponent-add="b"]').click();
+ await page.locator('[data-v9="give"]').check();await page.locator('[data-v9="receive"]').check();await page.locator('#v9Trade').click();
+ await page.getByText('Other manager: 90 → 30 (-60)',{exact:false}).waitFor();
+ await page.getByText('Private workspace & tester feedback',{exact:true}).click();
+ await page.locator('#v9NewKey').click();const token=await page.locator('#v9Key').inputValue();assert.equal(token.length,64);
+ await page.locator('#v9Save').click();await page.getByText('Workspace saved.',{exact:true}).waitFor();
+ await page.locator('#v9Feedback').fill('Browser regression: example roster comparison');await page.locator('#v9SendFeedback').click();await page.getByText('Feedback recorded:',{exact:false}).waitFor();
+ await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+ if(process.env.SCREENSHOT_DIR)await page.screenshot({path:require('node:path').join(process.env.SCREENSHOT_DIR,'v9-decision-lab.png'),fullPage:true});
+ await page.locator('#v9Load').click();await page.waitForLoadState('domcontentloaded');
+ await page.waitForFunction(()=>document.querySelector('#v9RosterSummary').textContent.includes('1 roster players'));
+ assert.equal(await page.locator('#v9PassTD').inputValue(),'6');
+ await page.locator('#v9BoardFilter').selectOption('mine');assert.equal(await page.locator('#board .playerRow').count(),1);
+ await page.getByText('Player usage history & comparison',{exact:true}).click();await page.locator('#v9HistoryName').fill('Example Receiver');await page.locator('#v9HistoryOther').fill('Example Upgrade');await page.locator('#v9HistorySeason').fill('2024');await page.locator('#v9HistoryLoad').click();await page.locator('#v9HistoryResult h3').first().waitFor();assert.equal(await page.locator('.v9bar').count(),4);
+ await page.setViewportSize({width:390,height:844});await page.locator('.mobileNav [data-target="decisions"]').click();
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
+ if(process.env.SCREENSHOT_DIR)await page.screenshot({path:require('node:path').join(process.env.SCREENSHOT_DIR,'v9-mobile.png'),fullPage:true});
+ await page.request.delete((process.env.BASE_URL || 'http://127.0.0.1:5050')+'/api/v9/workspace',{headers:{Authorization:'Bearer '+token}});
+ assert.deepEqual(errors,[]);await browser.close();console.log('PASS: V9 decision input/output, protected drops, two-team trades, workspace save/load, feedback, filters, comparison history, mobile and no JS exceptions.');
+})().catch(e=>{console.error(e);process.exit(1)});

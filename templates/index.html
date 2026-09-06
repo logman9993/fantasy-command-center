@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#17212b">
-<title>Fantasy Command Center V8.5</title>
+<title>Fantasy Command Center V9 Beta</title>
 <link rel="manifest" href="/static/manifest.json">
 <style>
 :root{
@@ -24,7 +24,7 @@ a{color:inherit}
 .mainNav{display:flex;align-self:stretch}.navBtn{border:0;background:transparent;color:#c7d0d9;padding:0 16px;font-size:12px;font-weight:850;border-bottom:3px solid transparent}.navBtn:hover{color:white;background:#202d39}.navBtn.active{color:white;border-bottom-color:var(--orange)}
 .navRight{margin-left:auto;display:flex;align-items:center;gap:8px}.status{font-size:10px;padding:6px 8px;border:1px solid #43515e;border-radius:4px;color:#cbd3da}.status b{color:#8ac3a8}
 .page{max-width:1440px;margin:auto;padding:18px}
-.command{display:grid;grid-template-columns:minmax(240px,1fr) 150px auto;gap:9px;margin-bottom:14px}
+.command{display:grid;grid-template-columns:minmax(240px,1fr) 120px 165px auto;gap:9px;margin-bottom:14px}
 .input,.select,.btn{min-height:42px;border-radius:5px;border:1px solid #c8c4ba;background:var(--card);color:var(--ink);padding:0 12px}
 .btn{font-weight:850;background:var(--ink);color:white;border-color:var(--ink)}.btn:hover{background:#263544}.btn.orange{background:var(--orange);border-color:var(--orange)}.btn.light{background:var(--card);color:var(--ink);border-color:#c8c4ba}.btn.small{min-height:34px;padding:0 9px;font-size:11px}
 .notice{padding:10px 12px;border-left:4px solid var(--blue);background:#e9edf2;color:#46505a;font-size:12px;margin-bottom:14px}
@@ -67,7 +67,7 @@ a{color:inherit}
 .empty{padding:22px;border:1px dashed #c9c4ba;background:#f7f4ee;color:var(--muted);text-align:center;font-size:12px}
 
 /* League HQ */
-.providerGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}.provider{background:var(--card);border:1px solid var(--line);padding:14px}.provider.supported{border-top:4px solid var(--orange)}.provider h3{margin:0;font-family:Georgia,serif}.provider p{font-size:10px;color:var(--muted);line-height:1.45}.providerState{font-size:9px;text-transform:uppercase;font-weight:900;letter-spacing:.08em;color:var(--green)}
+.providerGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}.provider{background:var(--card);border:1px solid var(--line);padding:14px}.provider.supported{border-top:4px solid var(--orange)}.provider h3{margin:0;font-family:Georgia,serif}.provider p{font-size:10px;color:var(--muted);line-height:1.45}.providerState{font-size:9px;text-transform:uppercase;font-weight:900;letter-spacing:.08em;color:var(--green)}
 .connectBox{background:var(--card);border:1px solid var(--line);padding:14px;margin-bottom:14px}.connectRow{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:8px}.leagueChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.leagueChoice{border:1px solid #cfc9bf;background:#faf8f3;padding:10px;text-align:left}.leagueChoice b{display:block}.leagueChoice span{display:block;font-size:10px;color:var(--muted);margin-top:2px}
 .hqHero{background:var(--ink);color:white;border-left:6px solid var(--orange);padding:18px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;margin-bottom:12px}.hqHero small{color:#b8c0c8}.hqHero h2{font-family:Georgia,serif;font-size:29px;margin:3px 0}.hqMeta{display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:#d3d9df}.gradeBlock{text-align:center;min-width:105px}.gradeLetter{font-family:Georgia,serif;font-size:48px;line-height:1;color:#f1b28f}.gradeBlock span{display:block;font-size:9px;color:#b8c0c8;margin-top:4px}
 .hqGrid{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}.hqPanel{background:var(--card);border:1px solid var(--line);padding:13px;box-shadow:var(--shadow)}.hqPanel h3{font-family:Georgia,serif;margin:0 0 9px;font-size:18px}
@@ -77,17 +77,22 @@ a{color:inherit}
 .lineupSplit{display:grid;grid-template-columns:1fr 1fr;gap:10px}.rosterList{border:1px solid #e1dcd3}.rosterTitle{padding:8px 9px;background:#f5f2ec;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.rosterPlayer{display:grid;grid-template-columns:35px 1fr auto;gap:7px;align-items:center;padding:8px;border-top:1px solid #ece7de}.rosterPlayer:first-of-type{border-top:0}.posSquare{width:30px;height:24px;display:grid;place-items:center;color:white;font-size:9px;font-weight:900;background:var(--ink)}.rosterPlayer b{font-size:11px}.rosterPlayer small{display:block;color:var(--muted);font-size:9px}.valueScore{font-size:10px;font-weight:900;color:var(--blue)}
 .moveGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.moveList{border:1px solid #e1dcd3}.moveHead{padding:8px 9px;background:#f5f2ec;font-size:10px;font-weight:900}.moveRow{padding:8px 9px;border-top:1px solid #ece7de}.moveRow b{font-size:11px}.moveRow span{display:block;font-size:9px;color:var(--muted);margin-top:2px}.swap{border-left:4px solid var(--green);background:#f6faf7;padding:10px;margin-top:7px;font-size:10px}.swap strong{color:var(--green)}
 .method{font-size:9px;color:var(--muted);line-height:1.4;margin-top:10px}
+
+.manualGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.manualPanel{border:1px solid #ddd7cc;background:#faf8f3;padding:10px}.manualPanel h4{margin:0 0 8px;font-family:Georgia,serif}.playerSearchResults{max-height:290px;overflow:auto;border:1px solid #ddd7cc;background:white}.catalogRow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px;align-items:center;padding:7px 8px;border-bottom:1px solid #eee9e0}.catalogRow:last-child{border-bottom:0}.catalogRow b{font-size:10px}.catalogRow small{display:block;color:var(--muted);font-size:9px}.tinyBtn{border:1px solid #c9c3b8;background:white;padding:5px 7px;border-radius:3px;font-size:9px;font-weight:850}.tinyBtn.roster{color:var(--blue)}.tinyBtn.available{color:var(--green)}.manualList{min-height:80px;border:1px solid #ddd7cc;background:white}.manualPlayer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-bottom:1px solid #eee9e0;font-size:10px}.manualPlayer:last-child{border-bottom:0}.removeMini{border:0;background:transparent;color:var(--red);font-weight:900}.manualSettings{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.manualSettings label{font-size:9px;color:var(--muted);font-weight:850}.manualSettings input,.manualSettings select{display:block;width:72px;margin-top:2px;border:1px solid #cbc5ba;background:white;padding:5px}.providerNote{font-size:9px;color:var(--muted);line-height:1.4;margin-top:7px}.yahooReady{color:var(--green)}.yahooPending{color:var(--gold)}
+
 .healthGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.health{background:var(--card);border:1px solid var(--line);padding:10px}.health b{font-size:10px}.health span{display:block;font-size:10px;margin-top:4px}.ok{color:var(--green)}.fail{color:var(--red)}
 .mobileNav{display:none}
 @media(max-width:1000px){.boardGrid,.cards2,.hqGrid{grid-template-columns:1fr}.newsGrid{grid-template-columns:repeat(2,1fr)}.providerGrid{grid-template-columns:1fr}.posGrades{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){
- .topbarInner{padding:0 12px}.mainNav{display:none}.navRight .status:first-child{display:none}.page{padding:10px 10px 76px}.command{grid-template-columns:1fr 115px}.command .btn{grid-column:1/-1}.summaryStrip{grid-template-columns:repeat(2,1fr)}
+ .manualGrid{grid-template-columns:1fr}.command{grid-template-columns:1fr 110px}.command #statSeason{grid-column:1/2}.command .btn{grid-column:1/-1}
+ .topbarInner{padding:0 12px}.mainNav{display:none}.navRight .status:first-child{display:none}.page{padding:10px 10px 76px}.summaryStrip{grid-template-columns:repeat(2,1fr)}
  .boardGrid,.cards2,.newsGrid{grid-template-columns:1fr}.playerRow{grid-template-columns:28px minmax(0,1fr) auto}.playerRow>.source{display:none}.actions .watchBtn{display:none}.kpis{grid-template-columns:repeat(2,1fr)}
  .sectionHead h1{font-size:25px}.connectRow{grid-template-columns:1fr}.leagueChoices{grid-template-columns:1fr}.hqHero{grid-template-columns:1fr auto;padding:14px}.hqHero h2{font-size:23px}.posGrades{grid-template-columns:repeat(3,1fr)}.lineupSplit,.moveGrid{grid-template-columns:1fr}
  .mobileNav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:7px;right:7px;bottom:7px;z-index:40;background:var(--ink);border-top:3px solid var(--orange);box-shadow:0 8px 30px rgba(0,0,0,.28)}
  .mobileNav button{border:0;background:transparent;color:#bec6ce;padding:8px 2px;font-size:9px;font-weight:850}.mobileNav button span{display:block;font-size:16px}.mobileNav button.active{color:#ffc4a8;background:#253241}
 }
 </style>
+<link rel="stylesheet" href="/static/v9.css">
 </head>
 <body>
 <header class="topbar">
@@ -109,6 +114,7 @@ a{color:inherit}
  <div class="command">
   <input id="search" class="input" placeholder="Search player, team or position…" autocomplete="off">
   <select id="scoring" class="select"><option value="PPR">PPR</option><option value="HALF">Half PPR</option><option value="STD">Standard</option></select>
+  <select id="statSeason" class="select" title="Season shown in player stat analysis"><option value="">Stats: latest</option></select>
   <button id="refresh" class="btn orange">Refresh data</button>
  </div>
  <div id="notice" class="notice">Loading the current draft board.</div>
@@ -130,13 +136,44 @@ a{color:inherit}
   <div id="providerArea">
    <div class="providerGrid">
     <div class="provider supported"><div class="providerState">Live now · read-only</div><h3>Sleeper</h3><p>Connect with username only. We read leagues, rosters, scoring settings, matchups and free agents. No password or write access.</p></div>
-    <div class="provider"><div class="providerState" style="color:var(--gold)">Adapter planned</div><h3>Yahoo Fantasy</h3><p>Yahoo offers an official OAuth Fantasy API. A future adapter can use Yahoo authorization without collecting your Yahoo password.</p></div>
-    <div class="provider supported"><div class="providerState">Live · browser extension</div><h3>ESPN Fantasy</h3><p>Private-league sync uses your existing ESPN browser session. No ESPN password or cookie value is sent to Command Center.</p><button id="espnHelp" class="btn light small" type="button">How to sync ESPN</button></div>
+    <div class="provider" id="yahooProvider"><div class="providerState yahooPending" id="yahooState">OAuth connector ready</div><h3>Yahoo Fantasy</h3><p>Yahoo now uses an approved Fantasy Sports API + OAuth 2.0. Once API access is approved, managers authorize directly at Yahoo and we never receive their Yahoo password.</p><button id="yahooConnect" class="btn light small" type="button">Check Yahoo access</button><div class="providerNote" id="yahooProviderNote"></div></div>
+    <div class="provider supported"><div class="providerState">Live · browser extension</div><h3>ESPN Fantasy</h3><p>Private-league sync uses the existing v0.2.4 extension. No ESPN linking behavior is changed in this release.</p><button id="espnHelp" class="btn light small" type="button">How to sync ESPN</button></div>
+    <div class="provider supported"><div class="providerState">Live · no account needed</div><h3>Manual Team</h3><p>Build a roster by selecting players. Command Center will grade the team, identify weak positions, and recommend drops/upgrades. You can optionally mark real free agents.</p><button id="manualOpen" class="btn light small" type="button">Build a team</button></div>
    </div>
    <div id="espnHelpPanel" class="connectBox" style="display:none;border-left:4px solid var(--orange)">
     <b>ESPN private league sync</b>
     <div class="detail">1. Install the Command Center ESPN Sync extension from the V8.2 package.<br>2. Sign into ESPN normally and open your fantasy football <b>team page</b>.<br>3. Click the extension and press <b>Sync current ESPN team</b>.<br>4. Command Center will reopen here with your ESPN League HQ analysis.</div>
     <div class="method"><b>Security:</b> the extension uses ESPN's already-authenticated page session. Command Center receives league JSON, not your ESPN password or cookie values.</div>
+   </div>
+   <div id="yahooPanel" class="connectBox" style="display:none;border-left:4px solid var(--blue)">
+    <b>Yahoo Fantasy OAuth</b>
+    <div id="yahooPanelBody" class="detail">Checking Yahoo connector status…</div>
+    <div id="yahooTeams" class="leagueChoices"></div>
+   </div>
+   <div id="manualBuilder" class="connectBox" style="display:none;border-left:4px solid var(--green)">
+    <b>Manual Team Builder</b>
+    <div class="detail">Pick your roster below. If you know who is actually on waivers, mark those players as <b>Available</b>; otherwise the app will recommend targets but clearly label them “verify availability.”</div>
+    <div class="manualSettings">
+      <label>Team name<input id="manualTeamName" value="My Team" style="width:150px"></label>
+      <label>League teams<select id="manualLeagueSize"><option>8</option><option>10</option><option selected>12</option><option>14</option><option>16</option></select></label>
+      <label>QB<input id="slotQB" type="number" min="0" max="3" value="1"></label>
+      <label>RB<input id="slotRB" type="number" min="0" max="5" value="2"></label>
+      <label>WR<input id="slotWR" type="number" min="0" max="5" value="2"></label>
+      <label>TE<input id="slotTE" type="number" min="0" max="3" value="1"></label>
+      <label>FLEX<input id="slotFLEX" type="number" min="0" max="3" value="1"></label>
+      <label>SUPER FLEX<input id="slotSUPER_FLEX" type="number" min="0" max="3" value="0"></label>
+      <label>K<input id="slotK" type="number" min="0" max="2" value="1"></label>
+      <label>DST<input id="slotDST" type="number" min="0" max="2" value="1"></label>
+    </div>
+    <div class="manualGrid">
+      <div class="manualPanel"><h4>Find players</h4><input id="manualSearch" class="input" placeholder="Search player or team…"><div id="manualSearchResults" class="playerSearchResults"><div class="empty">Open the builder to load the player catalog.</div></div></div>
+      <div>
+        <div class="manualPanel"><h4>My roster <span id="manualRosterCount"></span></h4><div id="manualRoster" class="manualList"></div></div>
+        <div class="manualPanel" style="margin-top:10px"><h4>Known available free agents <span id="manualAvailableCount"></span></h4><div id="manualAvailable" class="manualList"></div></div>
+      </div>
+    </div>
+    <button id="manualAnalyze" class="btn orange" style="margin-top:10px">Grade this team + recommend moves</button>
+    <button id="manualClear" class="btn light" style="margin-top:10px">Clear manual team</button>
    </div>
    <div class="connectBox">
     <div class="connectRow"><input id="sleeperUser" class="input" placeholder="Sleeper username"><button id="findLeagues" class="btn orange">Find my leagues</button></div>
@@ -149,6 +186,7 @@ a{color:inherit}
 
  <section id="teams" class="section">
   <div class="sectionHead"><div><div class="kicker">League context</div><h2>Team power</h2><p>Offense and defense rankings with the underlying league ranks visible.</p></div></div>
+  <label>Stats season <select id="teamSeason" class="select"><option value="0">Latest available</option>{% for year in range(season, season-6, -1) %}<option value="{{ year }}">{{ year }}</option>{% endfor %}</select></label><p id="teamStatsMeta" class="providerNote"></p>
   <div class="sectionHead"><h2 style="font-size:18px">Defenses</h2></div><div id="defenses" class="cards2"><div class="empty">Open this section to load team data.</div></div>
   <div class="sectionHead" style="margin-top:18px"><h2 style="font-size:18px">Offenses</h2></div><div id="offenses" class="cards2"><div class="empty">Open this section to load team data.</div></div>
  </section>
@@ -178,13 +216,13 @@ let board=null,activePos="ALL",sleeperLoaded=false,riskLoaded=false,teamsLoaded=
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const key=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function apiJSON(url,{timeout=70000,retries=1}={}){
+async function apiJSON(url,{timeout=70000,retries=1,...fetchOptions}={}){
  let last=null;
  for(let attempt=0;attempt<=retries;attempt++){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeout);
   try{
-   const response=await fetch(url,{signal:controller.signal,cache:"no-store"});
+   const response=await fetch(url,{...fetchOptions,signal:controller.signal,cache:fetchOptions.cache||"no-store"});
    const text=await response.text();
    if(!response.ok){let detail="";try{const j=JSON.parse(text);detail=j.message||j.error||""}catch{};throw new Error(`HTTP ${response.status}${detail?` — ${detail}`:""}`)}
    if(!text.trim())throw new Error("Server returned an empty response");
@@ -210,7 +248,7 @@ document.querySelectorAll("[data-target]").forEach(b=>b.addEventListener("click"
 
 function playerRows(arr,pos){
  return arr.map((p,i)=>`<div><div class="playerRow">
-  <div class="rank">${i+1}</div>
+  <div class="rank">${p.rank||((board?.rankings?.[pos]||[]).findIndex(x=>key(x.name)===key(p.name))+1)||i+1}</div>
   <div><div class="pname">${esc(p.name)}</div><div class="psub">${esc(p.team||"")} · ${esc(p.position||pos)}${p.starter_basis?" · "+esc(p.starter_basis):""}</div></div>
   <div class="source">${esc(p.source||"model")}</div>
   <div class="actions"><button class="icon watchBtn ${isWatched(p.name)?"active":""}" data-watch="${key(p.name)}">${isWatched(p.name)?"★":"☆"}</button>${pos!=="DST"?`<button class="icon analyze" data-analyze="${key(p.name)}">Analyze</button>`:""}</div>
@@ -220,7 +258,7 @@ function renderBoard(){
  if(!board)return;const q=document.getElementById("search").value.trim().toLowerCase();
  const positions=["QB","RB","WR","TE","K","DST"].filter(p=>activePos==="ALL"||p===activePos);
  document.getElementById("board").innerHTML=positions.map(pos=>{
-  const arr=(board.rankings[pos]||[]).filter(p=>!q||`${p.name} ${p.team} ${p.position}`.toLowerCase().includes(q));
+  const arr=(board.rankings[pos]||[]).filter(p=>(!window.v9BoardMatch||window.v9BoardMatch(p))&&(!q||`${p.name} ${p.team} ${p.position}`.toLowerCase().includes(q)));
   return `<div class="panel"><div class="panelHead" style="border-top:3px solid ${posColor[pos]}"><h3>${pos} · Top 25</h3><small>${arr.length} shown</small></div>${arr.length?playerRows(arr,pos):`<div class="empty">No matches</div>`}</div>`
  }).join("");
  document.querySelectorAll("[data-watch]").forEach(b=>b.addEventListener("click",()=>{const p=findPlayer(b.dataset.watch);if(p)toggleWatch(p)}));
@@ -230,8 +268,8 @@ async function loadAnalysis(p){
  const panel=document.getElementById("a-"+key(p.name));if(!panel)return;
  if(panel.dataset.loaded==="1"){panel.classList.toggle("open");return}
  panel.classList.add("open");panel.innerHTML=`<div class="analysisInner">Loading five-year production model…</div>`;
- try{const s=document.getElementById("scoring").value,a=await apiJSON(`/api/player-analysis?name=${encodeURIComponent(p.name)}&position=${encodeURIComponent(p.position)}&scoring=${s}`,{timeout:80000,retries:1});
-  panel.innerHTML=`<div class="analysisInner"><div class="twoStats"><div class="statBox"><b>${a.last_year_ppg??"—"}</b><span>${board.meta.prior_season} actual PPG</span></div><div class="statBox"><b>${a.projected_ppg??"—"}</b><span>${board.meta.season} model PPG</span></div></div><div class="kpis">${(a.kpis||[]).map(k=>`<div class="kpi"><b>${esc(k.value)}</b><span>${esc(k.label)}${k.rank?` · ${p.position} #${k.rank}`:""}</span></div>`).join("")}</div><div class="read"><b>Read:</b> ${esc(a.analysis||"")}</div><div class="history">${(a.history||[]).map(h=>`${h.season}: ${h.ppg} PPG`).join(" · ")}</div></div>`;panel.dataset.loaded="1";
+ try{const s=document.getElementById("scoring").value,season=document.getElementById("statSeason").value,a=await apiJSON(`/api/player-analysis?name=${encodeURIComponent(p.name)}&position=${encodeURIComponent(p.position)}&scoring=${s}&season=${encodeURIComponent(season)}`,{timeout:80000,retries:1});
+  panel.innerHTML=`<div class="analysisInner"><div class="twoStats"><div class="statBox"><b>${a.actual_ppg??"—"}</b><span>${a.actual_season} actual PPG · ${a.actual_games??"—"} games</span></div><div class="statBox"><b>${a.projected_ppg??"—"}</b><span>${board.meta.season} model PPG</span></div></div><div class="kpis">${(a.kpis||[]).map(k=>`<div class="kpi"><b>${esc(k.value)}</b><span>${esc(k.label)}${k.rank?` · ${p.position} #${k.rank}`:""}</span></div>`).join("")}</div><div class="read"><b>Read:</b> ${esc(a.analysis||"")}</div><div class="history">${(a.history||[]).map(h=>`${h.season}: ${h.ppg} PPG`).join(" · ")}</div></div>`;panel.dataset.loaded="1";
  }catch(e){panel.innerHTML=`<div class="analysisInner">${esc(e.message)}</div>`}
 }
 function verdictClass(v){v=String(v||"").toUpperCase();if(v.includes("TARGET"))return "target";if(v==="FADE")return "fade";return "watch"}
@@ -308,7 +346,7 @@ function riskCards(items){
  return items.map((p,i)=>`<article class="feature">
    <div class="featureTop">
      <div><strong>#${i+1} ${esc(p.name)}</strong><div class="psub">${esc(p.team)} · ${esc(p.position)}${p.current_status?` · ${esc(p.current_status)}`:""}</div></div>
-     <span class="tag">${p.risk}% risk</span>
+     <span class="tag">${p.risk}/100 risk score</span>
    </div>
    <div class="bar risk"><span style="width:${Math.max(4,p.risk)}%"></span></div>
 
@@ -373,7 +411,8 @@ function renderNews(){const arr=(newsData?.items||[]).filter(x=>newsSource==="AL
 async function loadNews(force=false){if(newsLoaded&&!force){renderNews();return}document.getElementById("newsList").innerHTML=`<div class="empty">Loading publishers…</div>`;try{const d=await apiJSON(`/api/news${force?"?force=1":""}`,{timeout:70000,retries:1});newsData=d;newsLoaded=true;renderNews();document.getElementById("newsMeta").textContent=`${d.items.length} stories · cached feed · ${d.ranking_note||""}`}catch(e){document.getElementById("newsList").innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 document.querySelectorAll("[data-source]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-source]").forEach(x=>x.classList.remove("active"));b.classList.add("active");newsSource=b.dataset.source;renderNews()}));document.getElementById("newsRefresh").addEventListener("click",()=>loadNews(true));
 
-async function loadTeams(){if(teamsLoaded)return;document.getElementById("defenses").innerHTML=`<div class="empty">Loading defensive metrics…</div>`;document.getElementById("offenses").innerHTML=`<div class="empty">Loading offensive metrics…</div>`;try{const d=await apiJSON("/api/team-power",{timeout:110000,retries:1});document.getElementById("defenses").innerHTML=teamCards(d.defenses);document.getElementById("offenses").innerHTML=teamCards(d.offenses);teamsLoaded=true;if(d.degraded)document.getElementById("notice").classList.add("serverWarn")}catch(e){document.getElementById("defenses").innerHTML=`<div class="empty">Team data failed: ${esc(e.message)}</div>`;document.getElementById("offenses").innerHTML=`<div class="empty">Team data failed: ${esc(e.message)}</div>`}}
+async function loadTeams(){if(teamsLoaded)return;document.getElementById("defenses").innerHTML=`<div class="empty">Loading defensive metrics…</div>`;document.getElementById("offenses").innerHTML=`<div class="empty">Loading offensive metrics…</div>`;try{const d=await apiJSON(`/api/team-power?season=${encodeURIComponent(document.getElementById("teamSeason").value)}`,{timeout:110000,retries:1});document.getElementById("defenses").innerHTML=teamCards(d.defenses);document.getElementById("offenses").innerHTML=teamCards(d.offenses);teamsLoaded=true;document.getElementById("teamStatsMeta").textContent=d.message||`${d.actual_season} regular-season statistics · ${d.source||""}`;if(d.degraded)document.getElementById("notice").classList.add("serverWarn")}catch(e){document.getElementById("defenses").innerHTML=`<div class="empty">Team data failed: ${esc(e.message)}</div>`;document.getElementById("offenses").innerHTML=`<div class="empty">Team data failed: ${esc(e.message)}</div>`}}
+document.getElementById("teamSeason").addEventListener("change",()=>{teamsLoaded=false;loadTeams()});
 async function loadRisk(){
  if(riskLoaded)return;
  const el=document.getElementById("riskList");
@@ -394,21 +433,22 @@ function rosterRows(items){return items.map(p=>`<div class="rosterPlayer"><div c
 function renderLeague(d){
  const t=d.team,l=d.league,g=t.grade,m=d.matchup;
  const pg=Object.entries(t.position_grades||{});
- document.getElementById("leagueAnalysis").innerHTML=`<div class="hqHero"><div><small>${esc(d.provider||"League")} · ${esc(l.name)} · ${esc(l.scoring)} · ${l.teams} teams</small><h2>${esc(t.name)}</h2><div class="hqMeta"><span>${t.record.wins}-${t.record.losses}${t.record.ties?`-${t.record.ties}`:""} record</span><span>League rank ${g.league_rank}/${g.league_size}</span>${t.waiver_position!=null?`<span>Waiver priority ${t.waiver_position}</span>`:""}${t.waiver_budget_used!=null?`<span>FAAB used ${t.waiver_budget_used}</span>`:""}</div></div><div class="gradeBlock"><div class="gradeLetter" style="color:${gradeColor(g.letter)}">${esc(g.letter)}</div><span>${g.score}/100 roster grade</span></div></div>
+ document.getElementById("leagueAnalysis").innerHTML=`<button class="btn light small" id="changeLeagueBtn" style="margin-bottom:9px">← Change league / team</button>${d.availability_mode==="verify"?`<div class="notice serverWarn">Manual mode: pickup names below are model targets only. Verify they are actually available in your league, or mark known free agents in the builder for exact add/drop suggestions.</div>`:""}<div class="hqHero"><div><small>${esc(d.provider||"League")} · ${esc(l.name)} · ${esc(l.scoring)} · ${l.teams} teams</small><h2>${esc(t.name)}</h2><div class="hqMeta">${d.grade_basis!=="model_estimate"?`<span>${t.record.wins}-${t.record.losses}${t.record.ties?`-${t.record.ties}`:""} record</span>`:""}<span>${d.grade_basis==="model_estimate"?"Model estimate · no league rank":`League rank ${g.league_rank}/${g.league_size}`}</span>${t.waiver_position!=null?`<span>Waiver priority ${t.waiver_position}</span>`:""}${t.waiver_budget_used!=null?`<span>FAAB used ${t.waiver_budget_used}</span>`:""}</div></div><div class="gradeBlock"><div class="gradeLetter" style="color:${gradeColor(g.letter)}">${esc(g.letter)}</div><span>${g.score}/100 roster grade</span></div></div>
  <div class="hqGrid">
   <div>
-   <div class="hqPanel"><h3>Position grades</h3><div class="posGrades">${pg.map(([pos,x])=>`<div class="posGrade"><span>${pos}</span><b style="color:${gradeColor(x.grade)}">${x.grade}</b><span>#${x.league_rank} of ${x.league_size}</span></div>`).join("")}</div></div>
+   <div class="hqPanel"><h3>Position grades</h3><div class="posGrades">${pg.map(([pos,x])=>`<div class="posGrade"><span>${pos}</span><b style="color:${gradeColor(x.grade)}">${x.grade}</b><span>${d.grade_basis==="model_estimate"?`${x.score}/100`:`#${x.league_rank} of ${x.league_size}`}</span></div>`).join("")}</div></div>
    <div class="hqPanel" style="margin-top:12px"><h3>Lineup</h3><div class="lineupSplit"><div class="rosterList"><div class="rosterTitle">Starters</div>${rosterRows(t.starters||[])}</div><div class="rosterList"><div class="rosterTitle">Bench</div>${rosterRows(t.bench||[])}</div></div></div>
    <div class="hqPanel" style="margin-top:12px"><h3>Best moves available</h3>${(d.swaps||[]).length?(d.swaps||[]).map(s=>`<div class="swap"><strong>ADD ${esc(s.add.name)}</strong> (${esc(s.add.position)}) · DROP ${esc(s.drop.name)} (${esc(s.drop.position)})<br>${esc(s.reason)}</div>`).join(""):`<div class="empty">No obvious add/drop upgrade clears the model threshold right now.</div>`}<div class="method">${esc(d.methodology)}</div></div>
   </div>
   <div>
    ${m?`<div class="hqPanel"><h3>Current matchup</h3><div class="matchup"><div><small>Week ${m.week}</small><br><strong>${esc(t.name)}</strong><br>${m.my_points??"—"} pts</div><div style="text-align:right"><small>Opponent</small><br><strong>${esc(m.opponent||"TBD")}</strong><br>${m.opponent_points??"—"} pts</div></div></div>`:""}
    <div class="hqPanel" style="margin-top:${m?"12":"0"}px"><h3>Roster diagnosis</h3><ul class="diagnosis">${(d.diagnosis||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
-   <div class="hqPanel" style="margin-top:12px"><h3>Waiver board</h3><div class="moveGrid"><div class="moveList"><div class="moveHead">Best available</div>${(d.pickups||[]).slice(0,7).map(p=>`<div class="moveRow"><b>${esc(p.name)} · ${esc(p.position)}</b><span>Pickup ${p.pickup_score} · ${esc(p.reason)}</span></div>`).join("")}</div><div class="moveList"><div class="moveHead">Lowest bench values</div>${(d.drops||[]).slice(0,7).map(p=>`<div class="moveRow"><b>${esc(p.name)} · ${esc(p.position)}</b><span>Value ${p.value} · ${esc(p.reason)}</span></div>`).join("")}</div></div></div>
+   <div class="hqPanel" style="margin-top:12px"><h3>Waiver board</h3><div class="moveGrid"><div class="moveList"><div class="moveHead">${d.availability_mode==="verify"?"Targets · verify availability":"Best available"}</div>${(d.pickups||[]).slice(0,7).map(p=>`<div class="moveRow"><b>${esc(p.name)} · ${esc(p.position)}</b><span>Pickup ${p.pickup_score} · ${esc(p.reason)}</span></div>`).join("")}</div><div class="moveList"><div class="moveHead">Lowest bench values</div>${(d.drops||[]).slice(0,7).map(p=>`<div class="moveRow"><b>${esc(p.name)} · ${esc(p.position)}</b><span>Value ${p.value} · ${esc(p.reason)}</span></div>`).join("")}</div></div></div>
   </div>
  </div>`;
  document.getElementById("providerArea").style.display="none";
  document.getElementById("leagueLoading").style.display="none";
+ document.getElementById("changeLeagueBtn")?.addEventListener("click",()=>{document.getElementById("providerArea").style.display="block";document.getElementById("leagueAnalysis").innerHTML="";});
  if(d.provider==="Sleeper" && d.user?.username){
   localStorage.setItem("fcc_league",JSON.stringify({username:d.user.username,league_id:l.league_id}));
  }
@@ -417,19 +457,73 @@ function renderLeague(d){
  }
 }
 async function analyzeLeague(id,user){document.getElementById("leagueLoading").style.display="block";document.getElementById("leagueAnalysis").innerHTML="";try{const d=await apiJSON(`/api/sleeper/team-analysis/${encodeURIComponent(id)}?username=${encodeURIComponent(user)}`,{timeout:120000,retries:1});renderLeague(d)}catch(e){document.getElementById("leagueLoading").style.display="none";document.getElementById("leagueAnalysis").innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
-document.getElementById("findLeagues").addEventListener("click",async()=>{const user=document.getElementById("sleeperUser").value.trim();if(!user)return;document.getElementById("leagueChoices").innerHTML=`<div class="empty">Finding leagues…</div>`;try{const d=await apiJSON(`/api/sleeper/leagues?username=${encodeURIComponent(user)}&season=2026`,{timeout:70000,retries:1});if(d.error)throw new Error(d.error);document.getElementById("leagueChoices").innerHTML=(d.leagues||[]).map(l=>`<button class="leagueChoice" data-league="${esc(l.league_id)}"><b>${esc(l.name)}</b><span>${esc(l.status)} · ${l.total_rosters} teams · ${esc(l.season)}</span></button>`).join("")||`<div class="empty">No 2026 Sleeper leagues found.</div>`;document.querySelectorAll("[data-league]").forEach(b=>b.addEventListener("click",()=>analyzeLeague(b.dataset.league,user)))}catch(e){document.getElementById("leagueChoices").innerHTML=`<div class="empty">${esc(e.message)}</div>`}});
+document.getElementById("findLeagues").addEventListener("click",async()=>{const user=document.getElementById("sleeperUser").value.trim();if(!user)return;document.getElementById("leagueChoices").innerHTML=`<div class="empty">Finding leagues…</div>`;try{const d=await apiJSON(`/api/sleeper/leagues?username=${encodeURIComponent(user)}&season={{ season }}`,{timeout:70000,retries:1});if(d.error)throw new Error(d.error);document.getElementById("leagueChoices").innerHTML=(d.leagues||[]).map(l=>`<button class="leagueChoice" data-league="${esc(l.league_id)}"><b>${esc(l.name)}</b><span>${esc(l.status)} · ${l.total_rosters} teams · ${esc(l.season)}</span></button>`).join("")||`<div class="empty">No {{ season }} Sleeper leagues found.</div>`;document.querySelectorAll("[data-league]").forEach(b=>b.addEventListener("click",()=>analyzeLeague(b.dataset.league,user)))}catch(e){document.getElementById("leagueChoices").innerHTML=`<div class="empty">${esc(e.message)}</div>`}});
 
 async function loadBoard(){
  const sc=document.getElementById("scoring").value;document.getElementById("notice").classList.remove("serverWarn");document.getElementById("notice").textContent="Waking the data service and loading the draft board…";sleeperLoaded=false;riskLoaded=false;teamsLoaded=false;
  try{
   try{await apiJSON("/health",{timeout:55000,retries:1})}catch{}
   const d=await apiJSON(`/api/dashboard?scoring=${encodeURIComponent(sc)}`,{timeout:110000,retries:1});
-  board=d;renderBoard();document.getElementById("sleepersList").innerHTML=`<div class="empty">Open Sleeper Radar to run the full analyst report.</div>`;const counts=d.meta?.counts||{},total=Object.values(counts).reduce((a,b)=>a+b,0),full=Object.values(counts).filter(x=>x>=25).length;document.getElementById("boardCount").textContent=total;document.getElementById("fullCount").textContent=`${full}/6`;document.getElementById("scoreMode").textContent=sc;document.getElementById("watchCount").textContent=watch().length;document.getElementById("topStatus").textContent=`${full}/6 boards full`;
-  if(d.meta?.degraded){document.getElementById("notice").classList.add("serverWarn");document.getElementById("notice").textContent=`Board loaded in fallback mode · ${total} entries · live sources are recovering.`}else{document.getElementById("notice").textContent=`Board ready · ${total} ranked entries · deeper analysis loads only when requested.`}
+  if(sc!==document.getElementById("scoring").value)return;
+  board=d;
+  const statSel=document.getElementById("statSeason"),oldSeason=statSel.value;
+  const seasons=d.meta?.stat_seasons||[d.meta?.latest_stats_season||d.meta?.prior_season];
+  statSel.innerHTML=`<option value="0">Stats: latest (${d.meta?.latest_stats_season||"unavailable"})</option>`+seasons.map(y=>`<option value="${y}">Stats: ${y}</option>`).join("");
+  if(oldSeason&&(oldSeason==="0"||seasons.map(String).includes(String(oldSeason))))statSel.value=oldSeason;
+  renderBoard();document.getElementById("sleepersList").innerHTML=`<div class="empty">Open Sleeper Radar to run the full analyst report.</div>`;const counts=d.meta?.counts||{},total=Object.values(counts).reduce((a,b)=>a+b,0),full=Object.values(counts).filter(x=>x>=25).length;document.getElementById("boardCount").textContent=total;document.getElementById("fullCount").textContent=`${full}/6`;document.getElementById("scoreMode").textContent=sc;document.getElementById("watchCount").textContent=watch().length;document.getElementById("topStatus").textContent=`${full}/6 boards full`;
+  if(d.meta?.degraded){document.getElementById("notice").classList.add("serverWarn");document.getElementById("notice").textContent=`Board loaded in fallback mode · ${total} entries · live sources are recovering.`}else{document.getElementById("notice").textContent=`Board ready · ${total} ranked entries · results available through ${d.meta?.latest_stats_season||"unknown"} · checked ${new Date((d.meta?.updated||Date.now()/1000)*1000).toLocaleTimeString()}.`}
  }catch(e){document.getElementById("notice").classList.add("serverWarn");document.getElementById("notice").textContent=`Dashboard could not load after retry: ${e.message}. Try Refresh data once Render finishes waking up.`}
 }
-document.getElementById("search").addEventListener("input",renderBoard);document.querySelectorAll("[data-pos]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-pos]").forEach(x=>x.classList.remove("active"));b.classList.add("active");activePos=b.dataset.pos;renderBoard()}));document.getElementById("refresh").addEventListener("click",loadBoard);document.getElementById("scoring").addEventListener("change",loadBoard);
+document.getElementById("search").addEventListener("input",renderBoard);document.getElementById("statSeason").addEventListener("change",renderBoard);document.querySelectorAll("[data-pos]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-pos]").forEach(x=>x.classList.remove("active"));b.classList.add("active");activePos=b.dataset.pos;renderBoard()}));document.getElementById("refresh").addEventListener("click",loadBoard);document.getElementById("scoring").addEventListener("change",()=>{manualCatalog=[];document.getElementById("manualBuilder").style.display="none";loadBoard()});
 
+
+
+let manualCatalog=[],manualRosterIds=[],manualAvailableIds=[];
+function manualSlots(){return Object.fromEntries(["QB","RB","WR","TE","FLEX","K","DST","SUPER_FLEX"].map(pos=>[pos,+document.getElementById("slot"+pos).value]))}
+function persistManual(){localStorage.setItem("fcc_manual_team",JSON.stringify({roster:manualRosterIds,available:manualAvailableIds,slots:manualSlots(),team_name:document.getElementById("manualTeamName").value,league_size:document.getElementById("manualLeagueSize").value}))}
+document.querySelectorAll(".manualSettings input,.manualSettings select").forEach(el=>el.addEventListener("change",persistManual));
+function manualPlayer(id){return manualCatalog.find(x=>String(x.id)===String(id))}
+function renderManualLists(){
+ const roster=manualRosterIds.map(manualPlayer).filter(Boolean),avail=manualAvailableIds.map(manualPlayer).filter(Boolean);
+ document.getElementById("manualRosterCount").textContent=`(${roster.length})`;document.getElementById("manualAvailableCount").textContent=`(${avail.length})`;
+ document.getElementById("manualRoster").innerHTML=roster.length?roster.map(p=>`<div class="manualPlayer"><span><b>${esc(p.name)}</b> · ${esc(p.team)} · ${esc(p.position)} · value ${p.value}</span><button class="removeMini" data-manual-remove="roster:${esc(p.id)}">×</button></div>`).join(""):`<div class="empty">No players added yet.</div>`;
+ document.getElementById("manualAvailable").innerHTML=avail.length?avail.map(p=>`<div class="manualPlayer"><span><b>${esc(p.name)}</b> · ${esc(p.team)} · ${esc(p.position)} · value ${p.value}</span><button class="removeMini" data-manual-remove="available:${esc(p.id)}">×</button></div>`).join(""):`<div class="empty">Optional. Leave blank if you do not know the waiver pool.</div>`;
+ document.querySelectorAll("[data-manual-remove]").forEach(b=>b.addEventListener("click",()=>{const [type,id]=b.dataset.manualRemove.split(":");if(type==="roster")manualRosterIds=manualRosterIds.filter(x=>String(x)!==id);else manualAvailableIds=manualAvailableIds.filter(x=>String(x)!==id);persistManual();renderManualLists();renderManualSearch()}));
+}
+function renderManualSearch(){
+ const q=document.getElementById("manualSearch").value.trim().toLowerCase();
+ const arr=manualCatalog.filter(p=>!q||`${p.name} ${p.team} ${p.position}`.toLowerCase().includes(q)).slice(0,40);
+ document.getElementById("manualSearchResults").innerHTML=arr.map(p=>`<div class="catalogRow"><span><b>${esc(p.name)}</b><small>${esc(p.team)} · ${esc(p.position)} · model ${p.value}${p.prior_ppg?` · ${p.prior_ppg} PPG`:""}</small></span><button class="tinyBtn roster" data-manual-add="roster:${esc(p.id)}">+ roster</button><button class="tinyBtn available" data-manual-add="available:${esc(p.id)}">+ available</button></div>`).join("")||`<div class="empty">No matches.</div>`;
+ document.querySelectorAll("[data-manual-add]").forEach(b=>b.addEventListener("click",()=>{const [type,id]=b.dataset.manualAdd.split(":");if(type==="roster"){if(!manualRosterIds.includes(id))manualRosterIds.push(id);manualAvailableIds=manualAvailableIds.filter(x=>x!==id)}else if(!manualRosterIds.includes(id)&&!manualAvailableIds.includes(id))manualAvailableIds.push(id);persistManual();renderManualLists()}));
+}
+async function openManualBuilder(){
+ const box=document.getElementById("manualBuilder");box.style.display=box.style.display==="none"?"block":"none";if(box.style.display==="none")return;
+ if(!manualCatalog.length){document.getElementById("manualSearchResults").innerHTML=`<div class="empty">Loading current player catalog…</div>`;try{const d=await apiJSON(`/api/player-catalog?scoring=${encodeURIComponent(document.getElementById("scoring").value)}`,{timeout:100000,retries:1});manualCatalog=d.items||[];try{const saved=JSON.parse(localStorage.getItem("fcc_manual_team")||"null");if(saved){manualRosterIds=(saved.roster||[]).map(String);manualAvailableIds=(saved.available||[]).map(String);if(saved.team_name)document.getElementById("manualTeamName").value=saved.team_name;if(saved.league_size)document.getElementById("manualLeagueSize").value=saved.league_size;for(const [pos,count] of Object.entries(saved.slots||{})){const el=document.getElementById("slot"+pos);if(el)el.value=count}}}catch{}renderManualLists();renderManualSearch()}catch(e){document.getElementById("manualSearchResults").innerHTML=`<div class="empty">Player catalog failed: ${esc(e.message)}</div>`}}
+}
+document.getElementById("manualOpen").addEventListener("click",openManualBuilder);document.getElementById("manualSearch").addEventListener("input",renderManualSearch);
+document.getElementById("manualClear").addEventListener("click",()=>{manualRosterIds=[];manualAvailableIds=[];localStorage.removeItem("fcc_manual_team");renderManualLists();renderManualSearch()});
+document.getElementById("manualAnalyze").addEventListener("click",async()=>{if(!manualRosterIds.length)return;document.getElementById("leagueLoading").style.display="block";const slots=manualSlots();const payload={team_name:document.getElementById("manualTeamName").value,league_name:"Manual League",league_size:+document.getElementById("manualLeagueSize").value,scoring:document.getElementById("scoring").value,slots,roster:manualRosterIds,available:manualAvailableIds};try{persistManual();const d=await apiJSON("/api/manual-team-analysis",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),timeout:100000,retries:1});renderLeague(d)}catch(e){document.getElementById("leagueLoading").style.display="none";document.getElementById("leagueAnalysis").innerHTML=`<div class="empty">Manual analysis failed: ${esc(e.message)}</div>`}});
+
+async function checkYahooStatus(){
+ const btn=document.getElementById("yahooConnect"),state=document.getElementById("yahooState"),note=document.getElementById("yahooProviderNote");
+ try{const d=await apiJSON("/api/yahoo/status",{timeout:20000,retries:0});if(!d.configured){state.textContent="Approval / credentials required";state.className="providerState yahooPending";btn.textContent="Yahoo setup required";note.textContent="Apply for Yahoo Fantasy API access, then add the four Yahoo environment variables in Render.";btn.onclick=()=>{const p=document.getElementById("yahooPanel");p.style.display="block";document.getElementById("yahooPanelBody").innerHTML="Yahoo now requires Fantasy Sports API access approval. After approval, set YAHOO_CLIENT_ID, YAHOO_CLIENT_SECRET, YAHOO_REDIRECT_URI and YAHOO_TOKEN_SECRET in Render. The OAuth connector in this release is already wired for that flow."};return}state.textContent=d.connected?"Connected via Yahoo OAuth":"OAuth ready";state.className="providerState yahooReady";btn.textContent=d.connected?"Load Yahoo teams":"Connect Yahoo";btn.onclick=()=>d.connected?loadYahooTeams():location.assign("/auth/yahoo/start")}catch(e){note.textContent=e.message}}
+async function loadYahooTeams(){
+ const panel=document.getElementById("yahooPanel"),body=document.getElementById("yahooPanelBody"),teams=document.getElementById("yahooTeams");
+ panel.style.display="block";body.textContent="Loading Yahoo Fantasy teams…";teams.innerHTML="";
+ try{const d=await apiJSON("/api/yahoo/teams",{timeout:50000,retries:1});
+ body.textContent=`Choose a team to import its roster and free-agent candidates. Grades are model estimates using standard scoring.`;
+ teams.innerHTML=(d.teams||[]).map(t=>`<button class="leagueChoice" data-yahoo-team="${esc(t.team_key)}"><b>${esc(t.name)}</b><span>Import roster · ${esc(t.league_key)}</span></button>`).join("")||`<div class="empty">No Yahoo NFL teams returned.</div>`;
+ teams.querySelectorAll("[data-yahoo-team]").forEach(b=>b.addEventListener("click",async()=>{
+ b.disabled=true;body.textContent="Importing roster, league settings and free agents…";
+ try{const result=await apiJSON(`/api/yahoo/team-analysis?team_key=${encodeURIComponent(b.dataset.yahooTeam)}`,{timeout:150000,retries:0});renderLeague(result)}catch(e){body.textContent=e.message}finally{b.disabled=false}
+ }));
+ const disconnect=document.createElement("button");disconnect.className="btn light small";disconnect.textContent="Disconnect Yahoo";
+ disconnect.onclick=async()=>{try{await apiJSON("/auth/yahoo/disconnect",{method:"POST",retries:0});teams.innerHTML="";body.textContent="Yahoo disconnected from this browser.";await checkYahooStatus()}catch(e){body.textContent=e.message}};
+ teams.appendChild(disconnect);
+ }catch(e){body.textContent=`Yahoo load failed: ${e.message}`}
+}
+checkYahooStatus();
+const qs=new URLSearchParams(location.search);if(qs.get("yahoo_connected")==="1"){switchSection("league");setTimeout(loadYahooTeams,200)}if(qs.get("yahoo_error")){switchSection("league");document.getElementById("yahooPanel").style.display="block";document.getElementById("yahooPanelBody").textContent=qs.get("yahoo_error")}
 
 document.getElementById("espnHelp").addEventListener("click",()=>{
  const p=document.getElementById("espnHelpPanel");
@@ -438,19 +532,20 @@ document.getElementById("espnHelp").addEventListener("click",()=>{
 window.addEventListener("message",event=>{
  if(event.source!==window)return;
  const msg=event.data||{};
- if(msg.type!=="FCC_ESPN_ANALYSIS"||!msg.payload)return;
+ if(msg.type!=="FCC_ESPN_ANALYSIS"||!msg.payload?.team||!msg.payload?.league||new URLSearchParams(location.search).get("espn_sync")!=="1")return;
  try{
    switchSection("league");
    document.getElementById("providerArea").style.display="block";
    renderLeague(msg.payload);
-   document.getElementById("notice").textContent=`ESPN league synced successfully · ${msg.payload.league?.name||"League HQ ready"}`;
+   document.getElementById("notice").textContent=`ESPN snapshot received ${msg.syncedAt?new Date(msg.syncedAt).toLocaleString():""} · ${msg.payload.league?.name||"League HQ ready"}`;
  }catch(e){
    document.getElementById("leagueAnalysis").innerHTML=`<div class="empty">ESPN sync arrived but could not render: ${esc(e.message)}</div>`;
  }
 });
 
-try{const saved=JSON.parse(localStorage.getItem("fcc_league")||"null");if(saved?.username&&saved?.league_id){document.getElementById("sleeperUser").value=saved.username;analyzeLeague(saved.league_id,saved.username)}}catch{}
+try{const saved=JSON.parse(localStorage.getItem("fcc_league")||"null");if(saved?.username&&saved?.league_id){document.getElementById("sleeperUser").value=saved.username;/* Saved league is available to reconnect from League HQ. */}}catch{}
 saveWatch(watch());loadBoard();
 </script>
+<script src="/static/v9.js"></script>
 </body>
 </html>

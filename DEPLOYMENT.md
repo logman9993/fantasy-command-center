@@ -214,3 +214,15 @@ Expected output:
 - The browser never receives your FantasyPros API key because API calls happen server-side.
 - Do not expose credentials inside JavaScript or templates.
 
+
+## V8.6 Yahoo environment variables
+
+Yahoo is optional. The rest of the application works without it.
+
+After Yahoo Fantasy Sports API approval, add the following Render secrets:
+
+- `YAHOO_CLIENT_ID`
+- `YAHOO_CLIENT_SECRET`
+- `YAHOO_TOKEN_SECRET`
+
+Keep `YAHOO_REDIRECT_URI` equal to the callback registered with Yahoo. See `YAHOO_SETUP.md`.
