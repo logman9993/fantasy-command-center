@@ -5,7 +5,7 @@
   const read = (k,f) => {try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
   let catalogPromise=null, compareRun=0, ocrWorker=null, ocrRun=0, matchRun=0, defaultWeekSet=false;
   const initials = p => (p.name||p.team||'?').split(' ').map(w=>w[0]).slice(0,2).join('');
-  window.playerPhoto = (p,large=false) => `<span class="portrait ${large?'large':''}" aria-hidden="true"><span>${esc(initials(p))}</span>${p.photo?`<img src="${esc(p.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span>`;
+  window.playerPhoto = (p,large=false) => `<span class="portrait ${large?'large':''}" aria-hidden="true"><span${p.photo?' hidden':''}>${esc(initials(p))}</span>${p.photo?`<img src="${esc(p.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.previousElementSibling.hidden=false;this.remove()">`:''}</span>`;
   async function ensureCatalog() {
     if (!catalogPromise) catalogPromise=apiJSON(`/api/v10/catalog?scoring=${$('scoring').value}`,{timeout:120000,retries:0}).then(d=>{manualCatalog=d.items||[];if(!defaultWeekSet&&d.week){$('compareWeek').value=d.week;defaultWeekSet=true}return manualCatalog}).catch(e=>{catalogPromise=null;throw e});
     return catalogPromise;

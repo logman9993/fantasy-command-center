@@ -46,6 +46,14 @@ app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 CACHE_DIR = Path(os.getenv("CACHE_DIR", str(BASE / "data")))
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+
+@app.after_request
+def add_cache_headers(response):
+    """Let browsers reuse static assets between visits."""
+    if request.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
 FANTASYPROS_KEY = os.getenv("FANTASYPROS_API_KEY", "").strip()
 YAHOO_CLIENT_ID = os.getenv("YAHOO_CLIENT_ID", "").strip()
 YAHOO_CLIENT_SECRET = os.getenv("YAHOO_CLIENT_SECRET", "").strip()
