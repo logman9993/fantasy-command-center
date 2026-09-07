@@ -1,3 +1,7 @@
+# V10 beta update
+
+See [V10 release notes](RELEASE_NOTES_V10.md) and [V10 tester checklist](TESTING_V10.md). League HQ supports screenshot roster import. Who Should I Start? replaces Decision Lab.
+
 # V9 beta update
 
 See [V9 release notes](RELEASE_NOTES_V9.md) and [five tester checks](TESTING_V9.md). The Players board remains the landing page. For server saves, configure a persistent `CACHE_DIR` first.

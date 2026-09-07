@@ -189,7 +189,9 @@ def register_v9(app, core):
             message = str(data.get("message", "")).strip()
             if not 5 <= len(message) <= 2000:
                 raise ValueError("Describe the issue in 5–2000 characters.")
-            record = json.dumps({"message": message, "snapshot": data.get("snapshot"), "version": "9.0-beta"})
+            record = json.dumps(
+                {"message": message, "snapshot": data.get("snapshot"), "version": "10.0-beta"}
+            )
             if len(record) > 100000:
                 raise ValueError("Feedback snapshot exceeds 100 KB.")
             ident = secrets.token_hex(8)

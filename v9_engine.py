@@ -109,6 +109,10 @@ def scoring_rules(mode="PPR", custom=None):
 
 
 def score_stats(row, rules):
+    row = dict(row)
+    for canonical, alias in (("field_goals_made", "fg_made"), ("extra_points_made", "pat_made")):
+        if row.get(canonical) in (None, "", "NA") and row.get(alias) not in (None, "", "NA"):
+            row[canonical] = row[alias]
     total = 0
     for key, coefficient in rules.items():
         if key == "bonus_rec_te" and row.get("position") != "TE":

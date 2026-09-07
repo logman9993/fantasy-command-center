@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#17212b">
-<title>Fantasy Command Center V9 Beta</title>
+<title>Fantasy Command Center V10 Beta</title>
 <link rel="manifest" href="/static/manifest.json">
 <style>
 :root{
@@ -93,6 +93,7 @@ a{color:inherit}
 }
 </style>
 <link rel="stylesheet" href="/static/v9.css">
+<link rel="stylesheet" href="/static/v10.css">
 </head>
 <body>
 <header class="topbar">
@@ -106,7 +107,7 @@ a{color:inherit}
    <button class="navBtn" data-target="news">News</button>
    <button class="navBtn" data-target="risk">Injury</button>
   </nav>
-  <div class="navRight"><span class="status"><b>●</b> Public site</span><span class="status" id="topStatus">Loading</span></div>
+
  </div>
 </header>
 
@@ -121,7 +122,7 @@ a{color:inherit}
 
  <section id="players" class="section active">
   <div class="sectionHead"><div><div class="kicker">Draft room</div><h1>Player board</h1><p>Dense, sortable decision support instead of oversized cards. Analyze a player only when you want the deeper five-year view.</p></div></div>
-  <div class="summaryStrip"><div class="summaryCell"><span>Board entries</span><strong id="boardCount">—</strong></div><div class="summaryCell"><span>Positions full</span><strong id="fullCount">—</strong></div><div class="summaryCell"><span>Scoring</span><strong id="scoreMode">PPR</strong></div><div class="summaryCell"><span>Watchlist</span><strong id="watchCount">0</strong></div></div>
+  <div class="summaryStrip"><div class="summaryCell"><span>Board entries</span><strong id="boardCount">—</strong></div><div class="summaryCell"><span>History through</span><strong id="fullCount">—</strong></div><div class="summaryCell"><span>Scoring</span><strong id="scoreMode">PPR</strong></div><div class="summaryCell"><span>Watchlist</span><strong id="watchCount">0</strong></div></div>
   <div class="posTabs"><button class="posBtn active" data-pos="ALL">All</button><button class="posBtn" data-pos="QB">QB</button><button class="posBtn" data-pos="RB">RB</button><button class="posBtn" data-pos="WR">WR</button><button class="posBtn" data-pos="TE">TE</button><button class="posBtn" data-pos="K">K</button><button class="posBtn" data-pos="DST">DST</button></div>
   <div id="board" class="boardGrid"></div>
  </section>
@@ -137,12 +138,12 @@ a{color:inherit}
    <div class="providerGrid">
     <div class="provider supported"><div class="providerState">Live now · read-only</div><h3>Sleeper</h3><p>Connect with username only. We read leagues, rosters, scoring settings, matchups and free agents. No password or write access.</p></div>
     <div class="provider" id="yahooProvider"><div class="providerState yahooPending" id="yahooState">OAuth connector ready</div><h3>Yahoo Fantasy</h3><p>Yahoo now uses an approved Fantasy Sports API + OAuth 2.0. Once API access is approved, managers authorize directly at Yahoo and we never receive their Yahoo password.</p><button id="yahooConnect" class="btn light small" type="button">Check Yahoo access</button><div class="providerNote" id="yahooProviderNote"></div></div>
-    <div class="provider supported"><div class="providerState">Live · browser extension</div><h3>ESPN Fantasy</h3><p>Private-league sync uses the existing v0.2.4 extension. No ESPN linking behavior is changed in this release.</p><button id="espnHelp" class="btn light small" type="button">How to sync ESPN</button></div>
+    <div class="provider supported"><div class="providerState">Live · browser extension</div><h3>ESPN Fantasy</h3><p>Private-league sync uses the included v0.2.5 extension. It reads your league through your signed-in browser.</p><button id="espnHelp" class="btn light small" type="button">How to sync ESPN</button></div>
     <div class="provider supported"><div class="providerState">Live · no account needed</div><h3>Manual Team</h3><p>Build a roster by selecting players. Command Center will grade the team, identify weak positions, and recommend drops/upgrades. You can optionally mark real free agents.</p><button id="manualOpen" class="btn light small" type="button">Build a team</button></div>
    </div>
    <div id="espnHelpPanel" class="connectBox" style="display:none;border-left:4px solid var(--orange)">
     <b>ESPN private league sync</b>
-    <div class="detail">1. Install the Command Center ESPN Sync extension from the V8.2 package.<br>2. Sign into ESPN normally and open your fantasy football <b>team page</b>.<br>3. Click the extension and press <b>Sync current ESPN team</b>.<br>4. Command Center will reopen here with your ESPN League HQ analysis.</div>
+    <div class="detail">1. Install the Command Center ESPN Sync extension from the V10 package.<br>2. Sign into ESPN normally and open your fantasy football <b>team page</b>.<br>3. Click the extension and press <b>Sync current ESPN team</b>.<br>4. Command Center will reopen here with your ESPN League HQ analysis.</div>
     <div class="method"><b>Security:</b> the extension uses ESPN's already-authenticated page session. Command Center receives league JSON, not your ESPN password or cookie values.</div>
    </div>
    <div id="yahooPanel" class="connectBox" style="display:none;border-left:4px solid var(--blue)">
@@ -249,7 +250,7 @@ document.querySelectorAll("[data-target]").forEach(b=>b.addEventListener("click"
 function playerRows(arr,pos){
  return arr.map((p,i)=>`<div><div class="playerRow">
   <div class="rank">${p.rank||((board?.rankings?.[pos]||[]).findIndex(x=>key(x.name)===key(p.name))+1)||i+1}</div>
-  <div><div class="pname">${esc(p.name)}</div><div class="psub">${esc(p.team||"")} · ${esc(p.position||pos)}${p.starter_basis?" · "+esc(p.starter_basis):""}</div></div>
+  <div class="playerIdentity">${window.playerPhoto?window.playerPhoto(p):""}<div><div class="pname">${esc(p.name)}</div><div class="psub">${esc(p.team||"")} · ${esc(p.position||pos)}${p.starter_basis?" · "+esc(p.starter_basis):""}</div></div></div>
   <div class="source">${esc(p.source||"model")}</div>
   <div class="actions"><button class="icon watchBtn ${isWatched(p.name)?"active":""}" data-watch="${key(p.name)}">${isWatched(p.name)?"★":"☆"}</button>${pos!=="DST"?`<button class="icon analyze" data-analyze="${key(p.name)}">Analyze</button>`:""}</div>
  </div>${pos!=="DST"?`<div id="a-${key(p.name)}" class="analysis" data-loaded="0"><div class="analysisInner">Analysis loads on request.</div></div>`:""}</div>`).join("");
@@ -258,8 +259,8 @@ function renderBoard(){
  if(!board)return;const q=document.getElementById("search").value.trim().toLowerCase();
  const positions=["QB","RB","WR","TE","K","DST"].filter(p=>activePos==="ALL"||p===activePos);
  document.getElementById("board").innerHTML=positions.map(pos=>{
-  const arr=(board.rankings[pos]||[]).filter(p=>(!window.v9BoardMatch||window.v9BoardMatch(p))&&(!q||`${p.name} ${p.team} ${p.position}`.toLowerCase().includes(q)));
-  return `<div class="panel"><div class="panelHead" style="border-top:3px solid ${posColor[pos]}"><h3>${pos} · Top 25</h3><small>${arr.length} shown</small></div>${arr.length?playerRows(arr,pos):`<div class="empty">No matches</div>`}</div>`
+  const arr=(board.rankings[pos]||[]).slice(0,activePos==="ALL"?25:100).filter(p=>(!window.v9BoardMatch||window.v9BoardMatch(p))&&(!q||`${p.name} ${p.team} ${p.position}`.toLowerCase().includes(q)));
+  return `<div class="panel"><div class="panelHead" style="border-top:3px solid ${posColor[pos]}"><h3>${pos} · ${activePos==="ALL"?"Top 25":"Top 100"}</h3><small>${arr.length} shown</small></div>${arr.length?playerRows(arr,pos):`<div class="empty">No matches</div>`}</div>`
  }).join("");
  document.querySelectorAll("[data-watch]").forEach(b=>b.addEventListener("click",()=>{const p=findPlayer(b.dataset.watch);if(p)toggleWatch(p)}));
  document.querySelectorAll("[data-analyze]").forEach(b=>b.addEventListener("click",()=>{const p=findPlayer(b.dataset.analyze);if(p)loadAnalysis(p)}));
@@ -470,7 +471,7 @@ async function loadBoard(){
   const seasons=d.meta?.stat_seasons||[d.meta?.latest_stats_season||d.meta?.prior_season];
   statSel.innerHTML=`<option value="0">Stats: latest (${d.meta?.latest_stats_season||"unavailable"})</option>`+seasons.map(y=>`<option value="${y}">Stats: ${y}</option>`).join("");
   if(oldSeason&&(oldSeason==="0"||seasons.map(String).includes(String(oldSeason))))statSel.value=oldSeason;
-  renderBoard();document.getElementById("sleepersList").innerHTML=`<div class="empty">Open Sleeper Radar to run the full analyst report.</div>`;const counts=d.meta?.counts||{},total=Object.values(counts).reduce((a,b)=>a+b,0),full=Object.values(counts).filter(x=>x>=25).length;document.getElementById("boardCount").textContent=total;document.getElementById("fullCount").textContent=`${full}/6`;document.getElementById("scoreMode").textContent=sc;document.getElementById("watchCount").textContent=watch().length;document.getElementById("topStatus").textContent=`${full}/6 boards full`;
+  renderBoard();document.getElementById("sleepersList").innerHTML=`<div class="empty">Open Sleeper Radar to run the full analyst report.</div>`;const counts=d.meta?.counts||{},total=Object.values(counts).reduce((a,b)=>a+b,0),full=Object.values(counts).filter(x=>x>=25).length;document.getElementById("boardCount").textContent=total;document.getElementById("fullCount").textContent=d.meta?.latest_stats_season||"—";document.getElementById("scoreMode").textContent=sc;document.getElementById("watchCount").textContent=watch().length;
   if(d.meta?.degraded){document.getElementById("notice").classList.add("serverWarn");document.getElementById("notice").textContent=`Board loaded in fallback mode · ${total} entries · live sources are recovering.`}else{document.getElementById("notice").textContent=`Board ready · ${total} ranked entries · results available through ${d.meta?.latest_stats_season||"unknown"} · checked ${new Date((d.meta?.updated||Date.now()/1000)*1000).toLocaleTimeString()}.`}
  }catch(e){document.getElementById("notice").classList.add("serverWarn");document.getElementById("notice").textContent=`Dashboard could not load after retry: ${e.message}. Try Refresh data once Render finishes waking up.`}
 }
@@ -502,7 +503,7 @@ async function openManualBuilder(){
 }
 document.getElementById("manualOpen").addEventListener("click",openManualBuilder);document.getElementById("manualSearch").addEventListener("input",renderManualSearch);
 document.getElementById("manualClear").addEventListener("click",()=>{manualRosterIds=[];manualAvailableIds=[];localStorage.removeItem("fcc_manual_team");renderManualLists();renderManualSearch()});
-document.getElementById("manualAnalyze").addEventListener("click",async()=>{if(!manualRosterIds.length)return;document.getElementById("leagueLoading").style.display="block";const slots=manualSlots();const payload={team_name:document.getElementById("manualTeamName").value,league_name:"Manual League",league_size:+document.getElementById("manualLeagueSize").value,scoring:document.getElementById("scoring").value,slots,roster:manualRosterIds,available:manualAvailableIds};try{persistManual();const d=await apiJSON("/api/manual-team-analysis",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),timeout:100000,retries:1});renderLeague(d)}catch(e){document.getElementById("leagueLoading").style.display="none";document.getElementById("leagueAnalysis").innerHTML=`<div class="empty">Manual analysis failed: ${esc(e.message)}</div>`}});
+document.getElementById("manualAnalyze").addEventListener("click",async()=>{if(!manualRosterIds.length)return;document.getElementById("leagueLoading").style.display="block";const slots=manualSlots();const payload={team_name:document.getElementById("manualTeamName").value,league_name:"Manual League",league_size:+document.getElementById("manualLeagueSize").value,scoring:document.getElementById("scoring").value,slots,roster:manualRosterIds,available:manualAvailableIds};try{persistManual();const d=await apiJSON("/api/v10/team-report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),timeout:100000,retries:1});renderLeague(d);if(window.renderTeamPriorities)window.renderTeamPriorities(d)}catch(e){document.getElementById("leagueLoading").style.display="none";document.getElementById("leagueAnalysis").innerHTML=`<div class="empty">Manual analysis failed: ${esc(e.message)}</div>`}});
 
 async function checkYahooStatus(){
  const btn=document.getElementById("yahooConnect"),state=document.getElementById("yahooState"),note=document.getElementById("yahooProviderNote");
@@ -546,6 +547,7 @@ window.addEventListener("message",event=>{
 try{const saved=JSON.parse(localStorage.getItem("fcc_league")||"null");if(saved?.username&&saved?.league_id){document.getElementById("sleeperUser").value=saved.username;/* Saved league is available to reconnect from League HQ. */}}catch{}
 saveWatch(watch());loadBoard();
 </script>
-<script src="/static/v9.js"></script>
+<script src="/static/v10.js"></script>
+<script src="/static/workspace.js"></script>
 </body>
 </html>

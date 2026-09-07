@@ -472,7 +472,9 @@ def fantasy_points(row, scoring):
     pos = (row.get("position") or "").upper()
     if pos in ("K", "PK"):
         # Common redraft baseline if a league has not supplied custom kicker scoring.
-        base += 3 * num(row, "field_goals_made") + num(row, "extra_points_made")
+        base += 3 * num(row, "field_goals_made", num(row, "fg_made")) + num(
+            row, "extra_points_made", num(row, "pat_made")
+        )
     return base
 
 
@@ -556,6 +558,10 @@ def history_for(name, pos, scoring, yearly):
     for year, rows in yearly.items():
         r = find_row(rows, name, pos)
         if not r:
+            continue
+        from v10_api import has_points
+
+        if not has_points(r, pos):
             continue
         pts = fantasy_points(r, scoring)
         g = games(r)
@@ -676,7 +682,7 @@ def dst_fallback(existing=None, limit=TOP_N):
     return out[:limit]
 
 
-def build_model_rankings(scoring):
+def build_model_rankings(scoring, limit=TOP_N):
     result = {p: [] for p in ALL_POSITIONS}
     try:
         prior_rows = load_year_stats(PRIOR_SEASON)
@@ -702,12 +708,16 @@ def build_model_rankings(scoring):
                 cur = current_by_name.get(norm_name(name))
                 if not name or not cur:
                     continue
+                from v10_api import has_points
+
+                if not has_points(r, pos):
+                    continue
                 pts = fantasy_points(r, scoring)
                 g = games(r)
                 ppg = pts / g if g else 0
                 candidates.append((ppg, pts, name, cur.get("team")))
             candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
-            for i, (ppg, pts, name, team) in enumerate(candidates[:TOP_N], 1):
+            for i, (ppg, pts, name, team) in enumerate(candidates[:limit], 1):
                 result[pos].append(
                     {
                         "name": name,
@@ -720,18 +730,18 @@ def build_model_rankings(scoring):
                         "starter_basis": f"{ppg:.1f} prior-year PPG",
                     }
                 )
-            result[pos] = sleeper_position_fallback(pos, result[pos], TOP_N)
+            result[pos] = sleeper_position_fallback(pos, result[pos], limit)
     else:
         for pos in ("QB", "RB", "WR", "TE", "K"):
-            result[pos] = sleeper_position_fallback(pos, [], TOP_N)
+            result[pos] = sleeper_position_fallback(pos, [], limit)
 
     # Do not make the initial page wait on team-stat downloads.
-    result["DST"] = dst_fallback([], TOP_N)
+    result["DST"] = dst_fallback([], limit)
     return result
 
 
 @timed_cache(maxsize=3)
-def rankings(scoring):
+def rankings(scoring, limit=TOP_N):
     result = {}
     model = None
     for pos in ALL_POSITIONS:
@@ -746,23 +756,23 @@ def rankings(scoring):
                         {"position": pos, "scoring": scoring, "type": "redraft"},
                     ),
                 )
-                live = normalize_fp_players(data)[:TOP_N]
+                live = normalize_fp_players(data)[:limit]
                 if live:
                     source_ok(f"rank_{pos}", f"FantasyPros ECR ({len(live)})")
             except Exception as e:
                 source_fail(f"rank_{pos}", e)
-        if len(live) < TOP_N:
+        if len(live) < limit:
             if model is None:
-                model = build_model_rankings(scoring)
+                model = build_model_rankings(scoring, limit)
             seen = {norm_name(x["name"]) for x in live}
             for p in model.get(pos, []):
                 if norm_name(p["name"]) not in seen:
                     live.append(p)
                     seen.add(norm_name(p["name"]))
-                if len(live) >= TOP_N:
+                if len(live) >= limit:
                     break
         # Final starter fallback only after model + Sleeper fallback.
-        if len(live) < TOP_N:
+        if len(live) < limit:
             seen = {norm_name(x["name"]) for x in live}
             for p in fallback().get("rankings", {}).get(pos, []):
                 if norm_name(p.get("name")) not in seen:
@@ -770,10 +780,19 @@ def rankings(scoring):
                     q.setdefault("source", "bundled fallback")
                     live.append(q)
                     seen.add(norm_name(q.get("name")))
-                if len(live) >= TOP_N:
+                if len(live) >= limit:
                     break
-        result[pos] = live[:TOP_N]
-        if len(result[pos]) >= TOP_N and f"rank_{pos}" not in SOURCE_STATE:
+        result[pos] = live[:limit]
+        if pos == "DST":
+            # Bundled fallback names can differ from team abbreviations. Never
+            # count the same NFL defense twice when expanding beyond 25.
+            unique_teams = {}
+            for player in live:
+                team = str(player.get("team") or player.get("name") or "").upper()
+                if team in ESPN_TEAMS and team not in unique_teams:
+                    unique_teams[team] = player
+            result[pos] = list(unique_teams.values())[: min(limit, 32)]
+        if len(result[pos]) >= limit and f"rank_{pos}" not in SOURCE_STATE:
             source_ok(f"rank_{pos}", f"{result[pos][0].get('source', 'model')} ({len(result[pos])})")
     return result
 
@@ -1027,6 +1046,10 @@ def player_analysis_one(name, pos, scoring, stat_season=0):
     except Exception:
         selected_rows = []
     actual = find_row(selected_rows, name, pos) if selected_rows else None
+    from v10_api import has_points
+
+    if actual and not has_points(actual, pos):
+        actual = None
     actual_games = games(actual) if actual else 0
     actual_total = round(fantasy_points(actual, scoring), 1) if actual else None
     actual_ppg = round(actual_total / actual_games, 1) if actual and actual_games else None
@@ -2543,7 +2566,7 @@ def health():
         {
             "status": "ok",
             "app": "Fantasy Command Center",
-            "version": "9.0-beta",
+            "version": "10.0-beta",
             "season": SEASON,
             "time": int(time.time()),
         }
@@ -3863,7 +3886,10 @@ def dashboard():
         scoring = "PPR"
     try:
         data = fallback()
-        ranks = rankings(scoring)
+        ranks = rankings(scoring, 100)
+        from v10_api import attach_photos
+
+        ranks = attach_photos(ranks, sleeper_players(), norm_name, player_name)
         data.update(
             {
                 "rankings": ranks,
@@ -4574,6 +4600,9 @@ def roster(league_id):
 from v9_api import register_v9
 
 register_v9(app, globals())
+from v10_api import register_v10
+
+register_v10(app, globals())
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5050")), debug=False)
