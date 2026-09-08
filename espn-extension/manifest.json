@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fantasy Command Center \u2014 ESPN Sync",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Read-only private ESPN Fantasy Football league sync for Fantasy Command Center.",
   "permissions": [
     "activeTab",
@@ -29,5 +29,6 @@
       ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyfDHdhPp2XqLP437oeMwJ53IQ2YlrQ38nZ4a5Ed0eez+Te9/f8C7erzKExlc4AomJbIrxCSNDAjmad0s92kFUnWLi+Dh6HsCQzetwzQoJWNAzkQx9gQEtN3x4vvZ5XSwMHF/J6zW88Z0J/76Ppnpxfu3aQQ0DzMzzuc3mJ3Bmjzx8bn5fg4N8kvpkx4VouEYp5pD/9WPzNw5zC0Nj/U9A+9fs92QWF5x2U8Uaea+ucuXZUWheYZyGRGS0zTzsqW3QsNlwIU/9f73vBQjc7sWMxpqGGk9ap4wZVHuKlMe2MtxtWul310d1Uqu/jL+mE+aqN1rAASUGzGaAIq7cd4MlwIDAQAB"
 }

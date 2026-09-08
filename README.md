@@ -1,3 +1,7 @@
+# Fantasy Command Center V10.1
+
+Current release: [V10.1 notes](docs/releases/RELEASE_NOTES_V10.1.md).
+
 # V10 beta update
 
 See [V10 release notes](RELEASE_NOTES_V10.md) and [V10 tester checklist](TESTING_V10.md). League HQ supports screenshot roster import. Who Should I Start? replaces Decision Lab.

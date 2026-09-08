@@ -226,3 +226,10 @@ After Yahoo Fantasy Sports API approval, add the following Render secrets:
 - `YAHOO_TOKEN_SECRET`
 
 Keep `YAHOO_REDIRECT_URI` equal to the callback registered with Yahoo. See `YAHOO_SETUP.md`.
+
+
+## V10.1 shared cache
+
+`render.yaml` now declares a Render Key Value cache and injects it as `REDIS_URL`. The application automatically falls back to atomic disk cache if Redis is unavailable. After initial Blueprint creation, verify both the web service and `fantasy-command-center-cache` appear in Render.
+
+GitHub Actions is the release gate; Render is configured to deploy when checks pass.

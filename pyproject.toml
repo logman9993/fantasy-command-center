@@ -6,4 +6,4 @@ line-length = 110
 select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.ruff.lint.per-file-ignores]
-"app.py" = ["E402"] # Register optional API routes after core helpers are defined.
+"fcc/application.py" = ["E402"] # Transitional implementation while route blueprints continue migrating.

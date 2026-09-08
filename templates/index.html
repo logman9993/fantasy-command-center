@@ -92,8 +92,8 @@ a{color:inherit}
  .mobileNav button{border:0;background:transparent;color:#bec6ce;padding:8px 2px;font-size:9px;font-weight:850}.mobileNav button span{display:block;font-size:16px}.mobileNav button.active{color:#ffc4a8;background:#253241}
 }
 </style>
-<link rel="stylesheet" href="/static/v9.css?v=10.1.0">
-<link rel="stylesheet" href="/static/v10.css?v=10.1.0">
+<link rel="stylesheet" href="/static/v9.css">
+<link rel="stylesheet" href="/static/v10.css">
 </head>
 <body>
 <header class="topbar">
@@ -214,6 +214,7 @@ a{color:inherit}
 
 <script>
 let board=null,activePos="ALL",sleeperLoaded=false,riskLoaded=false,teamsLoaded=false,newsLoaded=false,newsData=null,newsSource="ALL";
+const BOARD_CACHE_KEY="fcc_dashboard_v101";const deepBoards={};
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const key=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -460,31 +461,42 @@ function renderLeague(d){
 async function analyzeLeague(id,user){document.getElementById("leagueLoading").style.display="block";document.getElementById("leagueAnalysis").innerHTML="";try{const d=await apiJSON(`/api/sleeper/team-analysis/${encodeURIComponent(id)}?username=${encodeURIComponent(user)}`,{timeout:120000,retries:1});renderLeague(d)}catch(e){document.getElementById("leagueLoading").style.display="none";document.getElementById("leagueAnalysis").innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 document.getElementById("findLeagues").addEventListener("click",async()=>{const user=document.getElementById("sleeperUser").value.trim();if(!user)return;document.getElementById("leagueChoices").innerHTML=`<div class="empty">Finding leagues…</div>`;try{const d=await apiJSON(`/api/sleeper/leagues?username=${encodeURIComponent(user)}&season={{ season }}`,{timeout:70000,retries:1});if(d.error)throw new Error(d.error);document.getElementById("leagueChoices").innerHTML=(d.leagues||[]).map(l=>`<button class="leagueChoice" data-league="${esc(l.league_id)}"><b>${esc(l.name)}</b><span>${esc(l.status)} · ${l.total_rosters} teams · ${esc(l.season)}</span></button>`).join("")||`<div class="empty">No {{ season }} Sleeper leagues found.</div>`;document.querySelectorAll("[data-league]").forEach(b=>b.addEventListener("click",()=>analyzeLeague(b.dataset.league,user)))}catch(e){document.getElementById("leagueChoices").innerHTML=`<div class="empty">${esc(e.message)}</div>`}});
 
-function applyBoardData(d,sc,source="live"){
- if(sc!==document.getElementById("scoring").value||!d?.rankings)return false;
+function dashboardCacheKey(scoring){return `${BOARD_CACHE_KEY}:${scoring}`}
+function applyBoardData(d,sc,{cached=false}={}){
  board=d;
  const statSel=document.getElementById("statSeason"),oldSeason=statSel.value;
  const seasons=d.meta?.stat_seasons||[d.meta?.latest_stats_season||d.meta?.prior_season];
  statSel.innerHTML=`<option value="0">Stats: latest (${d.meta?.latest_stats_season||"unavailable"})</option>`+seasons.map(y=>`<option value="${y}">Stats: ${y}</option>`).join("");
  if(oldSeason&&(oldSeason==="0"||seasons.map(String).includes(String(oldSeason))))statSel.value=oldSeason;
- renderBoard();document.getElementById("sleepersList").innerHTML=`<div class="empty">Open Sleeper Radar to run the full analyst report.</div>`;const counts=d.meta?.counts||{},total=Object.values(counts).reduce((a,b)=>a+b,0);document.getElementById("boardCount").textContent=total;document.getElementById("fullCount").textContent=d.meta?.latest_stats_season||"—";document.getElementById("scoreMode").textContent=sc;document.getElementById("watchCount").textContent=watch().length;
- const notice=document.getElementById("notice");notice.classList.remove("serverWarn");
- if(source==="cached"){notice.textContent=`Showing your saved board while fresh data loads · ${total} entries.`}
- else if(d.meta?.degraded){notice.classList.add("serverWarn");notice.textContent=`Board loaded in fallback mode · ${total} entries · live sources are recovering.`}
- else{notice.textContent=`Board ready · ${total} ranked entries · results available through ${d.meta?.latest_stats_season||"unknown"} · checked ${new Date((d.meta?.updated||Date.now()/1000)*1000).toLocaleTimeString()}.`}
- return true;
+ renderBoard();document.getElementById("sleepersList").innerHTML=`<div class="empty">Open Sleeper Radar to run the full analyst report.</div>`;
+ const counts=d.meta?.counts||{},total=Object.values(counts).reduce((a,b)=>a+b,0);
+ document.getElementById("boardCount").textContent=total;document.getElementById("fullCount").textContent=d.meta?.latest_stats_season||"—";document.getElementById("scoreMode").textContent=sc;document.getElementById("watchCount").textContent=watch().length;
+ const age=d.meta?.updated?Math.max(0,Math.round(Date.now()/1000-d.meta.updated)):null;
+ document.getElementById("notice").textContent=cached?`Showing saved rankings immediately${age!=null?` · ${Math.round(age/60)}m old`:""}. Updating in background…`:`Board ready · ${total} ranked entries · results available through ${d.meta?.latest_stats_season||"unknown"} · checked ${new Date((d.meta?.updated||Date.now()/1000)*1000).toLocaleTimeString()}.`;
 }
-async function loadBoard(){
- const sc=document.getElementById("scoring").value;document.getElementById("notice").classList.remove("serverWarn");document.getElementById("notice").textContent="Loading the draft board…";sleeperLoaded=false;riskLoaded=false;teamsLoaded=false;
- try{const saved=JSON.parse(localStorage.getItem(`fcc_dashboard_${sc}`)||"null");if(saved?.board?.rankings&&Date.now()-Number(saved.saved_at||0)<86400000)applyBoardData(saved.board,sc,"cached")}catch{}
- try{
-  const d=await apiJSON(`/api/dashboard?scoring=${encodeURIComponent(sc)}`,{timeout:110000,retries:1});
-  if(!applyBoardData(d,sc))return;
-  try{localStorage.setItem(`fcc_dashboard_${sc}`,JSON.stringify({saved_at:Date.now(),board:d}))}catch{}
- }catch(e){document.getElementById("notice").classList.add("serverWarn");document.getElementById("notice").textContent=`Dashboard could not load after retry: ${e.message}. Try Refresh data once Render finishes waking up.`}
+function loadCachedBoard(sc){try{const raw=localStorage.getItem(dashboardCacheKey(sc));if(!raw)return false;const saved=JSON.parse(raw);if(!saved?.rankings)return false;applyBoardData(saved,sc,{cached:true});return true}catch{return false}}
+function saveCachedBoard(sc,d){try{localStorage.setItem(dashboardCacheKey(sc),JSON.stringify(d))}catch{}}
+async function loadDeepBoard(pos){
+ if(pos==="ALL"||deepBoards[pos])return;
+ const sc=document.getElementById("scoring").value;document.getElementById("notice").textContent=`Loading deeper ${pos} rankings…`;
+ try{const d=await apiJSON(`/api/rankings/${encodeURIComponent(pos)}?scoring=${encodeURIComponent(sc)}&limit=100`,{timeout:90000,retries:1});if(sc!==document.getElementById("scoring").value)return;board.rankings[pos]=d.items||[];deepBoards[pos]=true;renderBoard();document.getElementById("notice").textContent=`${pos} top ${Math.min(100,(d.items||[]).length)} loaded.`}catch(e){document.getElementById("notice").textContent=`Could not load deeper ${pos} board: ${e.message}`}
 }
-document.getElementById("search").addEventListener("input",renderBoard);document.getElementById("statSeason").addEventListener("change",renderBoard);document.querySelectorAll("[data-pos]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-pos]").forEach(x=>x.classList.remove("active"));b.classList.add("active");activePos=b.dataset.pos;renderBoard()}));document.getElementById("refresh").addEventListener("click",loadBoard);document.getElementById("scoring").addEventListener("change",()=>{manualCatalog=[];document.getElementById("manualBuilder").style.display="none";loadBoard()});
 
+async function loadBoard(){
+ const sc=document.getElementById("scoring").value;Object.keys(deepBoards).forEach(k=>delete deepBoards[k]);
+ document.getElementById("notice").classList.remove("serverWarn");
+ const hadCache=loadCachedBoard(sc);
+ if(!hadCache)document.getElementById("notice").textContent="Waking the data service and loading the draft board…";
+ sleeperLoaded=false;riskLoaded=false;teamsLoaded=false;
+ try{
+  try{await apiJSON("/health",{timeout:55000,retries:1})}catch{}
+  const d=await apiJSON(`/api/dashboard?scoring=${encodeURIComponent(sc)}`,{timeout:110000,retries:1});
+  if(sc!==document.getElementById("scoring").value)return;
+  saveCachedBoard(sc,d);applyBoardData(d,sc,{cached:false});
+  if(d.meta?.degraded){document.getElementById("notice").classList.add("serverWarn");document.getElementById("notice").textContent=`Board loaded in fallback mode · live sources are recovering.`}
+ }catch(e){document.getElementById("notice").classList.add("serverWarn");document.getElementById("notice").textContent=hadCache?`Saved rankings remain available. Background refresh failed: ${e.message}`:`Dashboard could not load after retry: ${e.message}. Try Refresh data once Render finishes waking up.`}
+}
+document.getElementById("search").addEventListener("input",renderBoard);document.getElementById("statSeason").addEventListener("change",renderBoard);document.querySelectorAll("[data-pos]").forEach(b=>b.addEventListener("click",async()=>{document.querySelectorAll("[data-pos]").forEach(x=>x.classList.remove("active"));b.classList.add("active");activePos=b.dataset.pos;renderBoard();if(activePos!=="ALL")await loadDeepBoard(activePos)}));document.getElementById("refresh").addEventListener("click",loadBoard);document.getElementById("scoring").addEventListener("change",()=>{manualCatalog=[];document.getElementById("manualBuilder").style.display="none";loadBoard()});
 
 
 let manualCatalog=[],manualRosterIds=[],manualAvailableIds=[];
@@ -555,7 +567,7 @@ window.addEventListener("message",event=>{
 try{const saved=JSON.parse(localStorage.getItem("fcc_league")||"null");if(saved?.username&&saved?.league_id){document.getElementById("sleeperUser").value=saved.username;/* Saved league is available to reconnect from League HQ. */}}catch{}
 saveWatch(watch());loadBoard();
 </script>
-<script src="/static/v10.js?v=10.1.0"></script>
-<script src="/static/workspace.js?v=10.1.0"></script>
+<script src="/static/v10.js"></script>
+<script src="/static/workspace.js"></script>
 </body>
 </html>

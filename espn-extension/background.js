@@ -95,7 +95,7 @@ async function analyze(snapshot){
   const response=await fetch(APP_URL+"/api/espn/analyze",{
     method:"POST",
     signal:AbortSignal.timeout(150000),
-    headers:{"Content-Type":"application/json"},
+    headers:{"Content-Type":"application/json","X-FCC-Extension-ID":chrome.runtime.id},
     body:JSON.stringify(snapshot)
   });
 
